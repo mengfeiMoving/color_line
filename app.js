@@ -1,6 +1,7 @@
 (() => {
   const SIZE = 7;
   const QUEUE_SIZE = 7;
+  const TOOL_COST = 100;
   const PROFILE_KEY = 'chroma-lines-profile-v1';
   const COLORS = [
     { id: 'coral', name: '珊瑚红', value: '#ff6577' },
@@ -492,15 +493,15 @@
     } else if (activeTool === 'wild') {
       statusText.textContent = '选择一个已放置格子，将它变成万能色';
       dot.style.background = '#a979ff';
-      toolHelp.innerHTML = '<strong>万能颜色</strong><p>只能改变一格；若它处于交叉点，可分别适配横线与竖线的颜色。</p>';
+      toolHelp.innerHTML = '<strong>万能颜色 · −100分</strong><p>只能改变一格；若它处于交叉点，可分别适配横线与竖线的颜色。</p>';
     } else if (activeTool === 'hammer') {
       statusText.textContent = '选择一个已放置格子敲除';
       dot.style.background = '#ffd056';
-      toolHelp.innerHTML = '<strong>敲掉一格</strong><p>只清除点击的格子。被破坏的多格棋子之后不能再整体移动。</p>';
+      toolHelp.innerHTML = '<strong>敲掉一格 · −100分</strong><p>只清除点击的格子。被破坏的多格棋子之后不能再整体移动。</p>';
     } else if (!movePieceId) {
       statusText.textContent = '先选择一个完整棋子';
       dot.style.background = '#58bfff';
-      toolHelp.innerHTML = '<strong>整体移动 · 第一步</strong><p>点击完整棋子的任意格。已被敲除或部分消除的棋子不能移动。</p>';
+      toolHelp.innerHTML = '<strong>整体移动 · −100分</strong><p>点击完整棋子的任意格。已被敲除或部分消除的棋子不能移动。</p>';
     } else {
       statusText.textContent = '再选择新位置的左上角';
       dot.style.background = '#58bfff';
@@ -551,13 +552,68 @@
     return normalColors.size <= 1 ? [...normalColors][0] || 'wild' : null;
   }
 
+  function clearScoreGroups(rows, cols, multiplier) {
+    const assignedColors = new Map();
+    rows.forEach(line => {
+      for (let c = 0; c < SIZE; c++) assignedColors.set(`${line.index}-${c}`, line.colorId);
+    });
+    cols.forEach(line => {
+      for (let r = 0; r < SIZE; r++) {
+        const key = `${r}-${line.index}`;
+        if (!assignedColors.has(key)) assignedColors.set(key, line.colorId);
+      }
+    });
+    const groups = new Map();
+    assignedColors.forEach((colorId, key) => {
+      if (!groups.has(colorId)) groups.set(colorId, []);
+      groups.get(colorId).push(key);
+    });
+    return [...groups].map(([colorId, keys]) => ({
+      colorId,
+      keys,
+      points: keys.length * 10 * multiplier
+    }));
+  }
+
+  function showClearScorePopups(groups) {
+    groups.forEach((group, groupIndex) => {
+      const centers = group.keys.map(key => {
+        const [r, c] = key.split('-').map(Number);
+        const rect = boardEl.children[r * SIZE + c]?.getBoundingClientRect();
+        return rect ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : null;
+      }).filter(Boolean);
+      if (!centers.length) return;
+      const left = centers.reduce((sum, point) => sum + point.x, 0) / centers.length;
+      const top = centers.reduce((sum, point) => sum + point.y, 0) / centers.length;
+      const color = COLORS.find(item => item.id === group.colorId)?.value || '#7c66ee';
+      const popup = document.createElement('div');
+      popup.className = 'clear-score-popup';
+      popup.textContent = `+${group.points}`;
+      popup.style.left = `${left}px`;
+      popup.style.top = `${top + groupIndex * 8}px`;
+      popup.style.color = color;
+      popup.style.fontSize = `${Math.min(38, 17 + Math.log2(group.points / 10 + 1) * 4.5)}px`;
+      document.body.appendChild(popup);
+      popup.addEventListener('animationend', () => popup.remove(), { once: true });
+    });
+  }
+
+  function chargeTool() {
+    score -= TOOL_COST;
+    renderAll();
+  }
+
   async function resolveLines() {
     const rows = [];
     const cols = [];
-    for (let r = 0; r < SIZE; r++) if (lineColor(board[r])) rows.push(r);
+    for (let r = 0; r < SIZE; r++) {
+      const colorId = lineColor(board[r]);
+      if (colorId) rows.push({ index: r, colorId });
+    }
     for (let c = 0; c < SIZE; c++) {
       const column = board.map(row => row[c]);
-      if (lineColor(column)) cols.push(c);
+      const colorId = lineColor(column);
+      if (colorId) cols.push({ index: c, colorId });
     }
     if (!rows.length && !cols.length) {
       combo = 0;
@@ -566,8 +622,8 @@
     }
     resolving = true;
     const keys = new Set();
-    rows.forEach(r => { for (let c = 0; c < SIZE; c++) keys.add(`${r}-${c}`); });
-    cols.forEach(c => { for (let r = 0; r < SIZE; r++) keys.add(`${r}-${c}`); });
+    rows.forEach(line => { for (let c = 0; c < SIZE; c++) keys.add(`${line.index}-${c}`); });
+    cols.forEach(line => { for (let r = 0; r < SIZE; r++) keys.add(`${r}-${line.index}`); });
     keys.forEach(key => {
       const [r, c] = key.split('-').map(Number);
       boardEl.children[r * SIZE + c].classList.add('clearing');
@@ -595,6 +651,7 @@
     combo += 1;
     const multiplier = 2 ** (combo - 1);
     const gained = keys.size * 10 * multiplier;
+    const scoreGroups = clearScoreGroups(rows, cols, multiplier);
     score += gained;
     if (score > highScoreFor()) {
       profile.highScores[profile.difficulty] = score;
@@ -602,6 +659,7 @@
     }
     resolving = false;
     renderAll();
+    showClearScorePopups(scoreGroups);
     showToast(combo > 1 ? `连消 ×${multiplier}，+${gained}分` : `消除成功，+${gained}分`);
     return count;
   }
@@ -614,8 +672,9 @@
     const piece = pieces.get(data.pieceId);
     const part = piece?.cells.find(x => x.r === r && x.c === c);
     if (part) part.wild = true;
-    renderBoard();
-    await resolveLines();
+    chargeTool();
+    const cleared = await resolveLines();
+    if (!cleared) showToast('万能色已生效，−100分');
     return true;
   }
 
@@ -630,8 +689,8 @@
       if (!piece.cells.length) pieces.delete(piece.id);
     }
     combo = 0;
-    renderAll();
-    showToast('已腾出一个空格');
+    chargeTool();
+    showToast('已敲除一格，−100分');
     return true;
   }
 
@@ -662,8 +721,9 @@
     });
     piece.cells = targets;
     movePieceId = null;
-    renderAll();
-    await resolveLines();
+    chargeTool();
+    const cleared = await resolveLines();
+    if (!cleared) showToast('棋子已移动，−100分');
     return true;
   }
 
@@ -797,7 +857,7 @@
     });
     register({
       name: 'change_cell_to_wild', title: '将一格变为万能色',
-      description: '使用无限测试道具，把指定已占用格变为万能颜色，并检查消除。',
+      description: '花费100分，把指定已占用格变为万能颜色，并检查消除；使用次数不限。',
       inputSchema: coordinateSchema,
       annotations: { readOnlyHint: false, untrustedContentHint: false },
       execute: async input => {
@@ -809,7 +869,7 @@
     });
     register({
       name: 'hammer_cell', title: '敲掉一格',
-      description: '使用无限测试道具，敲掉指定位置的一格棋子。',
+      description: '花费100分，敲掉指定位置的一格棋子；使用次数不限。',
       inputSchema: coordinateSchema,
       annotations: { readOnlyHint: false, untrustedContentHint: false },
       execute: input => {
@@ -821,7 +881,7 @@
     });
     register({
       name: 'move_intact_piece', title: '整体移动棋子',
-      description: '将来源格所属的完整棋子整体平移，以目标格作为新形状左上角。',
+      description: '花费100分，将来源格所属的完整棋子整体平移，以目标格作为新形状左上角；使用次数不限。',
       inputSchema: {
         type: 'object',
         properties: {
@@ -851,9 +911,9 @@
     button.addEventListener('click', () => setTool(activeTool === button.dataset.tool ? null : button.dataset.tool));
   });
   const toolCopy = {
-    wild: ['万能颜色', '选择棋盘上的一格，将它变成可适配任意颜色的万能格；多格棋子也只改变这一格。'],
-    hammer: ['敲掉一格', '选择棋盘上的一格将其移除；多格棋子只会被敲掉所选的一格。'],
-    move: ['整体移动', '先选择一个完整的已放置棋子，再选择新位置；保持原形状且不能旋转。']
+    wild: ['万能颜色 · −100分', '选择棋盘上的一格，将它变成可适配任意颜色的万能格；多格棋子也只改变这一格。'],
+    hammer: ['敲掉一格 · −100分', '选择棋盘上的一格将其移除；多格棋子只会被敲掉所选的一格。'],
+    move: ['整体移动 · −100分', '先选择一个完整的已放置棋子，再选择新位置；保持原形状且不能旋转。']
   };
   document.querySelectorAll('.tool-info').forEach(button => {
     button.addEventListener('click', event => {
