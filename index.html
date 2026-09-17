@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#ffffff" />
+  <meta name="description" content="同色整行或整列消除玩法测试版" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Crect x='6' y='6' width='8' height='8' rx='2' fill='%23ff6b7a'/%3E%3Crect x='18' y='6' width='8' height='8' rx='2' fill='%235ac8fa'/%3E%3Crect x='6' y='18' width='8' height='8' rx='2' fill='%23ffd65a'/%3E%3Crect x='18' y='18' width='8' height='8' rx='2' fill='%23a77bff'/%3E%3C/svg%3E" />
+  <title>同色成线 · 玩法测试</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="game-header">
+      <button class="profile-button" id="profileButton" type="button" aria-label="打开个人中心">
+        <img id="headerAvatar" alt="" hidden />
+        <span id="headerAvatarFallback">玩</span>
+      </button>
+      <div class="game-title">
+        <h1>同色成线<span id="modeLabel">丨普通模式</span></h1>
+      </div>
+    </header>
+
+    <section class="score-row" aria-label="得分信息">
+      <div class="score-card current-score">
+        <span>本次得分</span>
+        <strong id="score">0</strong>
+        <em id="comboBadge" hidden>连消 ×2</em>
+      </div>
+      <div class="score-card best-score">
+        <span>历史最高</span>
+        <strong id="highScore">0</strong>
+      </div>
+    </section>
+
+    <section class="queue-panel" aria-labelledby="queueTitle">
+      <div class="queue-heading">
+        <h2 id="queueTitle">待选区</h2>
+        <button class="refresh-button" id="refreshButton" type="button" aria-label="刷新全部待选棋子，剩余10次" title="刷新全部待选棋子">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7" /></svg>
+          <span class="sr-only" id="refreshCount">10</span>
+        </button>
+      </div>
+      <div class="queue" id="queue" aria-label="七个待选棋子"></div>
+      <p class="queue-note sr-only" id="queueNote">普通模式可任选一枚；刷新会同时重抽全部棋子的形状和颜色。</p>
+    </section>
+
+    <section class="board-card">
+      <div class="board-topline">
+        <div class="turn-status">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="statusText">从待选区拖动任意棋子到棋盘</span>
+        </div>
+        <span class="board-size">7 × 7</span>
+      </div>
+      <div class="board-wrap">
+        <div class="board" id="board" role="grid" aria-label="7乘7游戏棋盘"></div>
+        <div class="clear-flash" id="clearFlash" aria-hidden="true"></div>
+      </div>
+    </section>
+
+    <section class="tool-panel" aria-label="游戏道具">
+      <button class="cancel-tool" id="cancelTool" type="button" hidden>退出道具</button>
+      <div class="tool-list" role="group" aria-label="棋盘工具">
+        <div class="tool-tile" data-tool="wild">
+          <button class="tool-info" data-info="wild" type="button" aria-label="查看万能颜色说明">!</button>
+          <button class="tool-action" data-tool="wild" type="button" aria-pressed="false">
+            <span class="tool-icon wild-icon" aria-hidden="true">✦</span><strong>万能色</strong><b>∞</b>
+          </button>
+        </div>
+        <div class="tool-tile" data-tool="hammer">
+          <button class="tool-info" data-info="hammer" type="button" aria-label="查看敲除说明">!</button>
+          <button class="tool-action" data-tool="hammer" type="button" aria-pressed="false">
+            <span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m14 5 5 5M12.5 6.5l5 5M4 20l8.5-8.5M3 21l4-1-3-3-1 4Z" /></svg></span><strong>敲除</strong><b>∞</b>
+          </button>
+        </div>
+        <div class="tool-tile" data-tool="move">
+          <button class="tool-info" data-info="move" type="button" aria-label="查看整体移动说明">!</button>
+          <button class="tool-action" data-tool="move" type="button" aria-pressed="false">
+            <span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M12 2l-3 3m3-3 3 3M12 22l-3-3m3 3 3-3M2 12l3-3m-3 3 3 3M22 12l-3-3m3 3-3 3" /></svg></span><strong>移动</strong><b>∞</b>
+          </button>
+        </div>
+      </div>
+      <div class="tool-help" id="toolHelp"><strong>放置模式</strong><p>拖动待选棋子到棋盘。绿色预览表示可以放置。</p></div>
+    </section>
+
+    <button class="restart-button" id="resetButton" type="button">重新开始</button>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <dialog class="reset-dialog" id="resetDialog">
+    <form method="dialog">
+      <span class="dialog-mark">↻</span>
+      <h2>重新开始？</h2>
+      <p>本次得分会计入最近记录，棋盘和刷新次数会重置。</p>
+      <div>
+        <button value="cancel" class="secondary">继续本局</button>
+        <button value="confirm" class="primary">重新开始</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog class="profile-dialog" id="profileDialog">
+    <div class="profile-sheet">
+      <div class="profile-sheet-head">
+        <div><span class="eyebrow">Player profile</span><h2>个人中心</h2></div>
+        <button id="closeProfile" class="close-button" type="button" aria-label="关闭个人中心">×</button>
+      </div>
+      <section class="identity-editor">
+        <label class="avatar-editor" for="avatarInput">
+          <img id="profileAvatar" alt="头像预览" hidden />
+          <span id="profileAvatarFallback">玩</span>
+          <b>更换</b>
+        </label>
+        <input id="avatarInput" type="file" accept="image/*" hidden />
+        <label class="name-field"><span>用户名</span><input id="usernameInput" maxlength="12" autocomplete="nickname" /></label>
+      </section>
+      <section class="profile-score">
+        <span id="profileScoreMode">普通模式最高分</span><strong id="profileHighScore">0</strong>
+      </section>
+      <section class="profile-section">
+        <h3>游戏难度</h3>
+        <div class="difficulty-options" role="radiogroup" aria-label="选择游戏难度">
+          <button type="button" data-difficulty="normal" role="radio"><strong>普通</strong><small>七枚棋子任选</small></button>
+          <button type="button" data-difficulty="hard" role="radio"><strong>困难</strong><small>必须按顺序使用</small></button>
+        </div>
+        <p class="setting-note">切换难度后会开始新一局。</p>
+      </section>
+      <section class="profile-section">
+        <h3 id="recentTitle">普通模式最近五局</h3>
+        <ol class="recent-list" id="recentList"></ol>
+      </section>
+      <details class="rules-panel">
+        <summary>查看游戏规则</summary>
+        <ul>
+          <li>将棋子拖入7×7棋盘，填满同色整行或整列即可消除。</li>
+          <li>连续操作均完成消除时，得分倍率依次变为×2、×4、×8。</li>
+          <li>刷新会同时随机更换待选区全部棋子的形状与颜色，共10次。</li>
+          <li>万能色、敲除和移动道具在测试版中可以无限使用。</li>
+        </ul>
+      </details>
+      <button class="save-profile" id="saveProfile" type="button">保存设置</button>
+    </div>
+  </dialog>
+  <script src="./app.js"></script>
+</body>
+</html>
