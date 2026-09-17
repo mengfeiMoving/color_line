@@ -559,3 +559,26 @@ body { min-height: 100svh; overflow: hidden; }
   .tool-tile { height: 52px; }
   .restart-button { min-height: 34px; }
 }
+
+.clear-score-popup {
+  position: fixed;
+  z-index: 30;
+  pointer-events: none;
+  transform: translate(-50%, 6px) scale(.72);
+  opacity: 0;
+  font-weight: 950;
+  line-height: 1;
+  letter-spacing: -.04em;
+  white-space: nowrap;
+  -webkit-text-stroke: 1px rgba(255, 255, 255, .9);
+  paint-order: stroke fill;
+  filter: drop-shadow(0 4px 5px rgba(34, 47, 76, .2));
+  animation: clearScoreFloat 1.15s cubic-bezier(.16, .74, .3, 1) forwards;
+}
+
+@keyframes clearScoreFloat {
+  0% { opacity: 0; transform: translate(-50%, 6px) scale(.72); }
+  16% { opacity: 1; transform: translate(-50%, -8px) scale(1); }
+  72% { opacity: .92; }
+  100% { opacity: 0; transform: translate(-50%, -72px) scale(1.08); }
+}
