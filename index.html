@@ -99,6 +99,16 @@
       </div>
     </form>
   </dialog>
+  <dialog class="reset-dialog game-over-dialog" id="gameOverDialog">
+    <form method="dialog">
+      <span class="dialog-mark">0</span>
+      <h2>游戏结束</h2>
+      <p>道具费用会使积分低于0，本局得分已停在0分。</p>
+      <div class="single-action">
+        <button value="restart" class="primary">开始新一局</button>
+      </div>
+    </form>
+  </dialog>
   <dialog class="profile-dialog" id="profileDialog">
     <div class="profile-sheet">
       <div class="profile-sheet-head">
@@ -135,7 +145,7 @@
           <li>将棋子拖入7×7棋盘，填满同色整行或整列即可消除。</li>
           <li>连续操作均完成消除时，得分倍率依次变为×2、×4、×8。</li>
           <li>刷新会同时随机更换待选区全部棋子的形状与颜色，共10次。</li>
-          <li>万能色、敲除和移动道具不限使用次数，每次成功使用扣除100分。</li>
+          <li>万能色、敲除和移动道具不限使用次数，每次成功使用扣除100分；扣分后不足0分则本局结束，得分停在0分。</li>
         </ul>
       </details>
       <button class="save-profile" id="saveProfile" type="button">保存设置</button>
