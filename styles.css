@@ -386,17 +386,18 @@ button { font: inherit; }
 html, body { height: 100%; }
 body { min-height: 100svh; overflow: hidden; }
 :root {
-  --cell: clamp(34px, min(calc((100vw - 44px) / 7), calc((100svh - 362px) / 7)), 54px);
+  --cell: clamp(34px, min(calc((100vw - 36px) / 7), calc((100svh - 326px) / 7)), 62px);
 }
 
 .app-shell {
   width: min(100%, 560px);
   height: 100svh;
   margin: 0 auto;
-  padding: 8px 12px;
+  padding: 8px;
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto auto;
-  gap: 6px;
+  grid-template-rows: repeat(6, auto);
+  align-content: start;
+  gap: 4px;
   overflow: hidden;
 }
 
@@ -487,14 +488,14 @@ body { min-height: 100svh; overflow: hidden; }
   padding: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
 }
-.board-topline { width: min(100%, calc(7 * var(--cell) + 26px)); margin: 0 auto 3px; }
+.board-topline { width: min(100%, calc(7 * var(--cell) + 26px)); margin: 0 auto 1px; }
 .turn-status { gap: 7px; font-size: .72rem; }
 .status-dot { width: 6px; height: 6px; box-shadow: 0 0 0 3px rgba(94,230,168,.1); }
 .board-size { padding: 2px 6px; border: 0; background: #f3f5f8; font-size: .62rem; }
 .board-wrap { padding: 4px; border-radius: 13px; background: transparent; box-shadow: none; }
-.board { gap: 3px; }
+.board { gap: 2px; }
 .cell { border-radius: clamp(6px, 1.8vw, 9px); }
 
 .tool-panel { position: relative; padding: 0; }
@@ -547,9 +548,10 @@ body { min-height: 100svh; overflow: hidden; }
 }
 .restart-button:hover { background: #d94150; }
 .restart-button:active { transform: translateY(1px); }
+.reset-dialog form .single-action { grid-template-columns: 1fr; }
 
 @media (max-height: 700px) {
-  :root { --cell: clamp(32px, min(calc((100vw - 44px) / 7), calc((100svh - 342px) / 7)), 50px); }
+  :root { --cell: clamp(32px, min(calc((100vw - 36px) / 7), calc((100svh - 316px) / 7)), 56px); }
   .app-shell { padding-top: 5px; padding-bottom: 5px; gap: 4px; }
   .game-header { min-height: 40px; }
   .profile-button { width: 40px; height: 40px; }
