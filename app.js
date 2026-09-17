@@ -39,6 +39,7 @@
   const cancelTool = document.querySelector('#cancelTool');
   const toastEl = document.querySelector('#toast');
   const resetDialog = document.querySelector('#resetDialog');
+  const gameOverDialog = document.querySelector('#gameOverDialog');
   const profileDialog = document.querySelector('#profileDialog');
   const clearFlash = document.querySelector('#clearFlash');
   const modeLabel = document.querySelector('#modeLabel');
@@ -74,6 +75,7 @@
   let toastTimer = null;
   let helpTimer = null;
   let resolving = false;
+  let gameEnded = false;
 
   function defaultProfile() {
     return {
@@ -230,6 +232,7 @@
     selectedQueueIndex = 0;
     dragState = null;
     resolving = false;
+    gameEnded = false;
     setTool(null);
     renderAll();
     updateProfileUI();
@@ -264,7 +267,7 @@
     comboBadge.textContent = combo >= 2 ? `连消 ×${2 ** (combo - 1)}` : '';
     refreshCountEl.textContent = refreshes;
     refreshButton.setAttribute('aria-label', `刷新全部待选棋子，剩余${refreshes}次`);
-    refreshButton.disabled = refreshes <= 0 || resolving;
+    refreshButton.disabled = refreshes <= 0 || resolving || gameEnded;
     updateStatus();
   }
 
@@ -345,7 +348,7 @@
 
   function beginPieceDrag(event, index, card) {
     if (event.button !== undefined && event.button !== 0) return;
-    if (resolving) return;
+    if (resolving || gameEnded) return;
     event.preventDefault();
     if (!selectQueuePiece(index)) return;
     dragState = {
@@ -481,6 +484,11 @@
 
   function updateStatus() {
     const dot = document.querySelector('.status-dot');
+    if (gameEnded) {
+      statusText.textContent = '本局已结束，请开始新一局';
+      dot.style.background = '#ee4f5f';
+      return;
+    }
     if (!activeTool) {
       const selectedFits = hasValidPlacement(queue[selectedQueueIndex].shape);
       statusText.textContent = selectedFits
@@ -510,7 +518,7 @@
   }
 
   function handleCellClick(r, c) {
-    if (resolving) return;
+    if (resolving || gameEnded) return;
     if (activeTool === 'wild') return applyWild(r, c);
     if (activeTool === 'hammer') return applyHammer(r, c);
     if (activeTool === 'move') return handleMove(r, c);
@@ -518,6 +526,7 @@
   }
 
   async function placeSelected(index, r, c) {
+    if (gameEnded) return false;
     if (profile.difficulty === 'hard' && index !== 0) {
       showToast('困难模式必须使用第一枚棋子');
       return false;
@@ -598,12 +607,33 @@
     });
   }
 
+  function endGameForInsufficientScore() {
+    if (gameEnded) return;
+    score = 0;
+    gameEnded = true;
+    activeTool = null;
+    movePieceId = null;
+    document.querySelectorAll('.tool-action').forEach(button => {
+      button.classList.remove('active');
+      button.setAttribute('aria-pressed', 'false');
+    });
+    recordCurrentGame();
+    renderAll();
+    gameOverDialog.showModal();
+  }
+
   function chargeTool() {
+    if (score - TOOL_COST < 0) {
+      endGameForInsufficientScore();
+      return false;
+    }
     score -= TOOL_COST;
     renderAll();
+    return true;
   }
 
   async function resolveLines() {
+    if (gameEnded) return 0;
     const rows = [];
     const cols = [];
     for (let r = 0; r < SIZE; r++) {
@@ -672,7 +702,7 @@
     const piece = pieces.get(data.pieceId);
     const part = piece?.cells.find(x => x.r === r && x.c === c);
     if (part) part.wild = true;
-    chargeTool();
+    if (!chargeTool()) return true;
     const cleared = await resolveLines();
     if (!cleared) showToast('万能色已生效，−100分');
     return true;
@@ -689,7 +719,7 @@
       if (!piece.cells.length) pieces.delete(piece.id);
     }
     combo = 0;
-    chargeTool();
+    if (!chargeTool()) return true;
     showToast('已敲除一格，−100分');
     return true;
   }
@@ -721,7 +751,7 @@
     });
     piece.cells = targets;
     movePieceId = null;
-    chargeTool();
+    if (!chargeTool()) return true;
     const cleared = await resolveLines();
     if (!cleared) showToast('棋子已移动，−100分');
     return true;
@@ -738,6 +768,7 @@
   }
 
   function setTool(tool) {
+    if (gameEnded && tool) return;
     activeTool = tool;
     movePieceId = null;
     document.querySelectorAll('.tool-action').forEach(btn => {
@@ -765,6 +796,7 @@
   }
 
   function refreshAllCandidates() {
+    if (gameEnded) return { ok: false, reason: '本局已经结束' };
     if (refreshes <= 0 || resolving) return { ok: false, reason: '没有剩余换色次数' };
     const before = queue.map(piece => `${piece.color.id}:${JSON.stringify(piece.shape)}`);
     queue = Array.from({ length: QUEUE_SIZE }, makeQueuePiece);
@@ -789,6 +821,7 @@
       highScore: highScoreFor(),
       highScores: { ...profile.highScores },
       difficulty: profile.difficulty,
+      gameEnded,
       selectedQueuePosition: selectedQueueIndex + 1,
       candidatePieces: queue.map(piece => ({ color: piece.color.name, size: piece.shape.length, shape: piece.shape })),
       board: board.map(row => row.map(cell => cell ? (cell.wild ? '万能色' : cell.color.name) : null))
@@ -931,6 +964,9 @@
       recordCurrentGame();
       initGame();
     }
+  });
+  gameOverDialog.addEventListener('close', () => {
+    if (gameOverDialog.returnValue === 'restart') initGame();
   });
   document.querySelector('#profileButton').addEventListener('click', () => {
     pendingAvatar = profile.avatar;
