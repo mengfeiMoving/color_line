@@ -40,18 +40,15 @@ button { font: inherit; }
 .stats div:last-child { border: 0; }
 .stats span { display: block; font-size: .7rem; color: var(--muted); margin-bottom: 2px; }
 .stats strong { font-size: 1.15rem; font-variant-numeric: tabular-nums; }
-.reset-button, .refresh-button, .cancel-tool { border: 1px solid var(--line); color: var(--text); background: rgba(255,255,255,.06); border-radius: 12px; cursor: pointer; transition: .18s ease; }
+.reset-button, .cancel-tool { border: 1px solid var(--line); color: var(--text); background: rgba(255,255,255,.06); border-radius: 12px; cursor: pointer; transition: .18s ease; }
 .reset-button { height: 44px; padding: 0 14px; display: flex; align-items: center; gap: 7px; }
-.reset-button svg, .refresh-button svg { width: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-.reset-button:hover, .refresh-button:hover, .cancel-tool:hover { background: rgba(255,255,255,.12); transform: translateY(-1px); }
+.reset-button svg { width: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.reset-button:hover, .cancel-tool:hover { background: rgba(255,255,255,.12); transform: translateY(-1px); }
 .queue-panel, .board-card, .tool-panel { border: 1px solid var(--line); background: linear-gradient(145deg, rgba(24,34,62,.94), rgba(17,24,45,.94)); box-shadow: 0 24px 70px rgba(0,0,0,.28); }
 .queue-panel { padding: 18px 20px 14px; border-radius: 22px; margin-bottom: 18px; }
 .queue-heading, .board-topline { display: flex; justify-content: space-between; align-items: center; gap: 18px; }
 .eyebrow { display: block; color: #8190b5; font-size: .66rem; letter-spacing: .16em; font-weight: 800; text-transform: uppercase; margin-bottom: 3px; }
 .queue-heading h2, .tool-heading h2 { font-size: 1.05rem; }
-.refresh-button { display: flex; align-items: center; gap: 8px; padding: 9px 10px 9px 12px; }
-.refresh-button span { min-width: 26px; padding: 3px 7px; border-radius: 8px; background: var(--yellow); color: #392c00; font-weight: 900; font-size: .8rem; }
-.refresh-button:disabled { opacity: .38; cursor: not-allowed; transform: none; }
 .queue { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
 .queue-card { position: relative; height: 84px; border: 1px solid var(--line); border-radius: 15px; background: rgba(6,10,24,.42); display: grid; place-items: center; overflow: hidden; transition: .22s ease; }
 .queue-card::after { content: attr(data-order); position: absolute; top: 7px; left: 9px; color: #75819f; font-size: .65rem; font-weight: 800; }
@@ -144,8 +141,8 @@ button { font: inherit; }
 .brand-mark { background: #fff; border-color: var(--line); box-shadow: 0 8px 22px rgba(34,49,78,.10); }
 .stats { background: #fff; border-color: var(--line); box-shadow: 0 8px 28px rgba(34,49,78,.07); }
 .stats div { border-color: var(--line); }
-.reset-button, .refresh-button, .cancel-tool { color: var(--text); background: #fff; border-color: var(--line); }
-.reset-button:hover, .refresh-button:hover, .cancel-tool:hover { background: #f3f6fb; }
+.reset-button, .cancel-tool { color: var(--text); background: #fff; border-color: var(--line); }
+.reset-button:hover, .cancel-tool:hover { background: #f3f6fb; }
 .queue-panel, .board-card, .tool-panel {
   border-color: var(--line);
   background: #fff;
@@ -339,12 +336,12 @@ button { font: inherit; }
 .profile-score strong { font-size: 1.4rem; }
 .profile-section { margin-top: 20px; }
 .profile-section h3 { margin: 0 0 10px; font-size: .9rem; }
-.difficulty-options { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
-.difficulty-options button { padding: 12px; border: 1px solid var(--line); border-radius: 14px; color: var(--text); background: #f8fafc; text-align: left; cursor: pointer; }
-.difficulty-options button[aria-checked="true"] { border-color: #596cff; background: #f1f3ff; box-shadow: 0 0 0 3px rgba(89,108,255,.09); }
-.difficulty-options strong, .difficulty-options small { display: block; }
-.difficulty-options strong { font-size: .82rem; }
-.difficulty-options small { margin-top: 4px; color: var(--muted); font-size: .7rem; }
+.mode-options { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.mode-options button { padding: 12px; border: 1px solid var(--line); border-radius: 14px; color: var(--text); background: #f8fafc; text-align: left; cursor: pointer; }
+.mode-options button[aria-checked="true"] { border-color: #596cff; background: #f1f3ff; box-shadow: 0 0 0 3px rgba(89,108,255,.09); }
+.mode-options strong, .mode-options small { display: block; }
+.mode-options strong { font-size: .82rem; }
+.mode-options small { margin-top: 4px; color: var(--muted); font-size: .7rem; }
 .setting-note { margin: 8px 0 0; color: var(--muted); font-size: .7rem; }
 .recent-list { margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
 .recent-list li { display: grid; grid-template-columns: 1fr auto; gap: 12px; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: .76rem; }
@@ -448,17 +445,6 @@ body { min-height: 100svh; overflow: hidden; }
 .queue-panel { padding: 0; }
 .queue-heading { height: 22px; gap: 8px; }
 .queue-heading h2 { font-size: .78rem; color: var(--muted); }
-.refresh-button {
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 10px;
-  background: #f0f3f8;
-}
-.refresh-button svg { width: 17px; }
 .queue {
   height: clamp(46px, 7.2svh, 58px);
   margin-top: 3px;
@@ -494,6 +480,7 @@ body { min-height: 100svh; overflow: hidden; }
 .turn-status { gap: 7px; font-size: .72rem; }
 .status-dot { width: 6px; height: 6px; box-shadow: 0 0 0 3px rgba(94,230,168,.1); }
 .board-size { padding: 2px 6px; border: 0; background: #f3f5f8; font-size: .62rem; }
+.board-size.urgent { color: #fff; background: #ee4f5f; }
 .board-wrap { padding: 4px; border-radius: 13px; background: transparent; box-shadow: none; }
 .board { gap: 2px; }
 .cell { border-radius: clamp(6px, 1.8vw, 9px); }
