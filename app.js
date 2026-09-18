@@ -2,6 +2,7 @@
   const SIZE = 7;
   const QUEUE_SIZE = 7;
   const TOOL_COST = 100;
+  const TIMED_DURATION_SECONDS = 5 * 60;
   const PROFILE_KEY = 'chroma-lines-profile-v1';
   const COLORS = [
     { id: 'coral', name: '珊瑚红', value: '#ff6577' },
@@ -19,11 +20,9 @@
       [[0, 0], [0, 1], [1, 0]], [[0, 0], [0, 1], [1, 1]]
     ],
     4: [
-      [[0, 0], [0, 1], [0, 2], [0, 3]], [[0, 0], [1, 0], [2, 0], [3, 0]],
       [[0, 0], [0, 1], [1, 0], [1, 1]],
       [[0, 0], [1, 0], [2, 0], [2, 1]], [[0, 1], [1, 1], [2, 0], [2, 1]],
-      [[0, 0], [0, 1], [0, 2], [1, 1]], [[0, 1], [1, 0], [1, 1], [2, 1]],
-      [[0, 1], [0, 2], [1, 0], [1, 1]], [[0, 0], [0, 1], [1, 1], [1, 2]]
+      [[0, 0], [0, 1], [0, 2], [1, 1]], [[0, 1], [1, 0], [1, 1], [2, 1]]
     ]
   };
 
@@ -32,8 +31,6 @@
   const scoreEl = document.querySelector('#score');
   const highScoreEl = document.querySelector('#highScore');
   const comboBadge = document.querySelector('#comboBadge');
-  const refreshButton = document.querySelector('#refreshButton');
-  const refreshCountEl = document.querySelector('#refreshCount');
   const statusText = document.querySelector('#statusText');
   const toolHelp = document.querySelector('#toolHelp');
   const cancelTool = document.querySelector('#cancelTool');
@@ -43,6 +40,7 @@
   const profileDialog = document.querySelector('#profileDialog');
   const clearFlash = document.querySelector('#clearFlash');
   const modeLabel = document.querySelector('#modeLabel');
+  const timeDisplay = document.querySelector('#timeDisplay');
   const queueNote = document.querySelector('#queueNote');
   const headerAvatar = document.querySelector('#headerAvatar');
   const headerAvatarFallback = document.querySelector('#headerAvatarFallback');
@@ -54,21 +52,22 @@
   const profileScoreMode = document.querySelector('#profileScoreMode');
   const recentTitle = document.querySelector('#recentTitle');
   const recentList = document.querySelector('#recentList');
+  const gameOverMark = document.querySelector('#gameOverMark');
+  const gameOverTitle = document.querySelector('#gameOverTitle');
+  const gameOverMessage = document.querySelector('#gameOverMessage');
 
   let board;
   let queue;
   let pieces;
   let nextPieceId;
-  let refreshes;
   let score;
   let lines;
   let moves;
   let combo;
   let profile;
   let pendingAvatar = '';
-  let pendingDifficulty = 'normal';
+  let pendingMode = 'endless';
   let activeTool = null;
-  let movePieceId = null;
   let selectedQueueIndex = 0;
   let dragState = null;
   let hoverAnchor = null;
@@ -76,43 +75,48 @@
   let helpTimer = null;
   let resolving = false;
   let gameEnded = false;
+  let timerId = null;
+  let timerDeadline = 0;
+  let timeRemaining = TIMED_DURATION_SECONDS;
+  let undoSnapshot = null;
+  let hasPlayed = false;
+  let gameRecorded = false;
 
   function defaultProfile() {
     return {
       username: '玩家',
       avatar: '',
-      highScores: { normal: 0, hard: 0 },
-      recentScoresByMode: { normal: [], hard: [] },
-      difficulty: 'normal'
+      highScores: { endless: 0, timed: 0 },
+      recentScoresByMode: { endless: [], timed: [] },
+      mode: 'endless'
     };
   }
 
   function loadProfile() {
     try {
       const saved = JSON.parse(localStorage.getItem(PROFILE_KEY));
-      const difficulty = saved?.difficulty === 'hard' ? 'hard' : 'normal';
+      const legacyMode = saved?.difficulty === 'hard' ? 'timed' : 'endless';
+      const mode = saved?.mode === 'timed' || saved?.mode === 'endless' ? saved.mode : legacyMode;
       const highScores = {
-        normal: Math.max(0, Number(saved?.highScores?.normal) || 0),
-        hard: Math.max(0, Number(saved?.highScores?.hard) || 0)
+        endless: Math.max(0, Number(saved?.highScores?.endless ?? saved?.highScores?.normal) || 0),
+        timed: Math.max(0, Number(saved?.highScores?.timed ?? saved?.highScores?.hard) || 0)
       };
       const legacyHighScore = Math.max(0, Number(saved?.highScore) || 0);
-      highScores[difficulty] = Math.max(highScores[difficulty], legacyHighScore);
-      const recentScoresByMode = { normal: [], hard: [] };
-      ['normal', 'hard'].forEach(mode => {
-        if (Array.isArray(saved?.recentScoresByMode?.[mode])) {
-          recentScoresByMode[mode] = saved.recentScoresByMode[mode].slice(0, 5);
-        }
-      });
+      highScores[mode] = Math.max(highScores[mode], legacyHighScore);
+      const recentScoresByMode = {
+        endless: (saved?.recentScoresByMode?.endless || saved?.recentScoresByMode?.normal || []).slice(0, 5),
+        timed: (saved?.recentScoresByMode?.timed || saved?.recentScoresByMode?.hard || []).slice(0, 5)
+      };
       if (Array.isArray(saved?.recentScores)) {
         saved.recentScores.forEach(item => {
-          const mode = item?.difficulty === 'hard' ? 'hard' : 'normal';
-          if (recentScoresByMode[mode].length < 5) recentScoresByMode[mode].push(item);
+          const itemMode = item?.mode === 'timed' || item?.difficulty === 'hard' ? 'timed' : 'endless';
+          if (recentScoresByMode[itemMode].length < 5) recentScoresByMode[itemMode].push(item);
         });
       }
       return {
         username: typeof saved?.username === 'string' ? saved.username.slice(0, 12) : '玩家',
         avatar: typeof saved?.avatar === 'string' ? saved.avatar : '',
-        difficulty,
+        mode,
         highScores,
         recentScoresByMode
       };
@@ -121,7 +125,7 @@
     }
   }
 
-  function highScoreFor(mode = profile.difficulty) {
+  function highScoreFor(mode = profile.mode) {
     return profile.highScores?.[mode] || 0;
   }
 
@@ -142,38 +146,42 @@
 
   function updateProfileUI() {
     highScoreEl.textContent = highScoreFor();
-    const profileMode = pendingDifficulty === 'hard' ? 'hard' : 'normal';
+    const profileMode = pendingMode;
     profileHighScore.textContent = highScoreFor(profileMode);
-    profileScoreMode.textContent = profileMode === 'hard' ? '困难模式最高分' : '普通模式最高分';
-    recentTitle.textContent = profileMode === 'hard' ? '困难模式最近五局' : '普通模式最近五局';
-    modeLabel.textContent = profile.difficulty === 'hard' ? '丨困难模式' : '丨普通模式';
-    queueNote.textContent = profile.difficulty === 'hard'
-      ? '困难模式必须从左到右依次使用；刷新会重抽全部棋子的形状和颜色。'
-      : '普通模式可任选一枚；刷新会同时重抽全部棋子的形状和颜色。';
+    profileScoreMode.textContent = `${modeName(profileMode)}模式最高分`;
+    recentTitle.textContent = `${modeName(profileMode)}模式最近五局`;
+    modeLabel.textContent = `丨${modeName(profile.mode)}模式`;
+    queueNote.textContent = '两种模式都可从七枚待选棋子中任选一枚。';
     setAvatarElement(headerAvatar, headerAvatarFallback, profile.avatar);
     setAvatarElement(profileAvatar, profileAvatarFallback, pendingAvatar || profile.avatar);
     usernameInput.value = profile.username;
-    document.querySelectorAll('[data-difficulty]').forEach(button => {
-      const checked = button.dataset.difficulty === pendingDifficulty;
+    document.querySelectorAll('[data-mode]').forEach(button => {
+      const checked = button.dataset.mode === pendingMode;
       button.setAttribute('aria-checked', checked ? 'true' : 'false');
     });
     renderRecentScores(profileMode);
   }
 
-  function renderRecentScores(mode = profile.difficulty) {
+  function modeName(mode) {
+    return mode === 'timed' ? '限时' : '无尽';
+  }
+
+  function renderRecentScores(mode = profile.mode) {
     const scores = profile.recentScoresByMode?.[mode] || [];
     recentList.innerHTML = '';
     if (!scores.length) {
       const empty = document.createElement('li');
       empty.className = 'empty-history';
-      empty.textContent = `${mode === 'hard' ? '困难' : '普通'}模式还没有记录`;
+      empty.textContent = `${modeName(mode)}模式还没有记录`;
       recentList.appendChild(empty);
       return;
     }
     scores.slice(0, 5).forEach(item => {
       const row = document.createElement('li');
       const label = document.createElement('span');
-      label.textContent = new Date(item.at).toLocaleDateString('zh-CN');
+      label.textContent = new Date(item.at).toLocaleString('zh-CN', {
+        month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'
+      });
       const value = document.createElement('strong');
       value.textContent = `${item.score}分`;
       row.append(label, value);
@@ -182,17 +190,18 @@
   }
 
   function recordCurrentGame() {
-    if (moves <= 0) return;
-    const mode = profile.difficulty;
-    profile.recentScoresByMode[mode].unshift({ score, difficulty: mode, at: Date.now() });
+    if (!hasPlayed || gameRecorded) return;
+    const mode = profile.mode;
+    if (!Array.isArray(profile.recentScoresByMode[mode])) profile.recentScoresByMode[mode] = [];
+    profile.recentScoresByMode[mode].unshift({ score, mode, at: Date.now() });
     profile.recentScoresByMode[mode] = profile.recentScoresByMode[mode].slice(0, 5);
     profile.highScores[mode] = Math.max(highScoreFor(mode), score);
+    gameRecorded = true;
     saveProfileData();
   }
 
   function randomItem(items) { return items[Math.floor(Math.random() * items.length)]; }
-  function randomColor(excludeId = null) {
-    // Intentionally does not exclude the previous color: a refresh can be ineffective.
+  function randomColor() {
     return randomItem(COLORS);
   }
   function weightedSize() {
@@ -219,12 +228,42 @@
     return Array.from({ length: SIZE }, () => Array(SIZE).fill(null));
   }
 
+  function createUndoSnapshot() {
+    return {
+      board: board.map(row => row.map(cell => cell ? { ...cell } : null)),
+      queue: queue.map(piece => ({ ...piece, shape: piece.shape.map(cell => [...cell]) })),
+      pieces: new Map([...pieces].map(([id, piece]) => [id, {
+        ...piece,
+        cells: piece.cells.map(cell => ({ ...cell }))
+      }])),
+      nextPieceId,
+      score,
+      lines,
+      moves,
+      combo,
+      selectedQueueIndex
+    };
+  }
+
+  function restoreUndoSnapshot(snapshot) {
+    board = snapshot.board;
+    queue = snapshot.queue;
+    pieces = snapshot.pieces;
+    nextPieceId = snapshot.nextPieceId;
+    score = snapshot.score;
+    lines = snapshot.lines;
+    moves = snapshot.moves;
+    combo = snapshot.combo;
+    selectedQueueIndex = snapshot.selectedQueueIndex;
+    activeTool = null;
+  }
+
   function initGame() {
+    stopTimer();
     board = freshBoard();
     queue = Array.from({ length: QUEUE_SIZE }, makeQueuePiece);
     pieces = new Map();
     nextPieceId = 1;
-    refreshes = 10;
     score = 0;
     lines = 0;
     moves = 0;
@@ -233,10 +272,50 @@
     dragState = null;
     resolving = false;
     gameEnded = false;
+    undoSnapshot = null;
+    hasPlayed = false;
+    gameRecorded = false;
     setTool(null);
     renderAll();
     updateProfileUI();
+    startGameTimer();
     showToast('新的一局开始了');
+  }
+
+  function stopTimer() {
+    if (timerId) clearInterval(timerId);
+    timerId = null;
+  }
+
+  function updateTimerDisplay() {
+    if (profile.mode === 'endless') {
+      timeDisplay.textContent = '不限时';
+      timeDisplay.setAttribute('aria-label', '无尽模式，不限时');
+      timeDisplay.classList.remove('urgent');
+      return;
+    }
+    const minutes = Math.floor(timeRemaining / 60);
+    const seconds = String(timeRemaining % 60).padStart(2, '0');
+    timeDisplay.textContent = `${minutes}:${seconds}`;
+    timeDisplay.setAttribute('aria-label', `限时模式，剩余${minutes}分${seconds}秒`);
+    timeDisplay.classList.toggle('urgent', timeRemaining <= 30);
+  }
+
+  function updateTimer() {
+    if (profile.mode !== 'timed' || gameEnded) return;
+    const nextRemaining = Math.max(0, Math.ceil((timerDeadline - Date.now()) / 1000));
+    if (nextRemaining === timeRemaining) return;
+    timeRemaining = nextRemaining;
+    updateTimerDisplay();
+    if (timeRemaining === 0) endGame('time');
+  }
+
+  function startGameTimer() {
+    timeRemaining = TIMED_DURATION_SECONDS;
+    updateTimerDisplay();
+    if (profile.mode !== 'timed') return;
+    timerDeadline = Date.now() + TIMED_DURATION_SECONDS * 1000;
+    timerId = setInterval(updateTimer, 250);
   }
 
   function createCells() {
@@ -265,9 +344,7 @@
     highScoreEl.textContent = highScoreFor();
     comboBadge.hidden = combo < 2;
     comboBadge.textContent = combo >= 2 ? `连消 ×${2 ** (combo - 1)}` : '';
-    refreshCountEl.textContent = refreshes;
-    refreshButton.setAttribute('aria-label', `刷新全部待选棋子，剩余${refreshes}次`);
-    refreshButton.disabled = refreshes <= 0 || resolving || gameEnded;
+    updateTimerDisplay();
     updateStatus();
   }
 
@@ -299,16 +376,15 @@
     queueEl.innerHTML = '';
     queue.forEach((piece, i) => {
       const card = document.createElement('div');
-      const allowed = profile.difficulty === 'normal' || i === 0;
-      const selected = allowed && i === selectedQueueIndex;
-      card.className = `queue-card${selected ? ' selected' : ''}${!allowed ? ' locked' : ''}${profile.difficulty === 'hard' && i === 0 ? ' sequence-current' : ''}`;
+      const selected = i === selectedQueueIndex;
+      card.className = `queue-card${selected ? ' selected' : ''}`;
       card.dataset.order = String(i + 1).padStart(2, '0');
       card.dataset.index = i;
-      card.tabIndex = allowed ? 0 : -1;
+      card.tabIndex = 0;
       card.setAttribute('role', 'button');
       card.setAttribute('aria-pressed', selected ? 'true' : 'false');
-      card.setAttribute('aria-disabled', allowed ? 'false' : 'true');
-      card.setAttribute('aria-label', `待选第${i + 1}枚：${piece.color.name}，${piece.shape.length}格棋子。${allowed ? '可拖入棋盘' : '困难模式中需等待前面的棋子'}`);
+      card.setAttribute('aria-disabled', 'false');
+      card.setAttribute('aria-label', `待选第${i + 1}枚：${piece.color.name}，${piece.shape.length}格棋子，可拖入棋盘`);
       card.appendChild(renderMiniPiece(piece));
       card.addEventListener('pointerdown', event => beginPieceDrag(event, i, card));
       card.addEventListener('keydown', event => {
@@ -322,10 +398,6 @@
   }
 
   function selectQueuePiece(index) {
-    if (profile.difficulty === 'hard' && index !== 0) {
-      showToast('困难模式必须按顺序使用棋子');
-      return false;
-    }
     selectedQueueIndex = Math.max(0, Math.min(index, queue.length - 1));
     [...queueEl.children].forEach((card, i) => {
       const selected = i === selectedQueueIndex;
@@ -334,7 +406,6 @@
     });
     if (activeTool) {
       activeTool = null;
-      movePieceId = null;
       document.querySelectorAll('.tool-action').forEach(btn => {
         btn.classList.remove('active');
         btn.setAttribute('aria-pressed', 'false');
@@ -441,27 +512,20 @@
   }
 
   function getPreviewCells(anchorR, anchorC) {
-    if (activeTool === 'move' && movePieceId) {
-      const piece = pieces.get(movePieceId);
-      if (!piece) return [];
-      const minR = Math.min(...piece.cells.map(x => x.r));
-      const minC = Math.min(...piece.cells.map(x => x.c));
-      return piece.cells.map(x => ({ r: anchorR + x.r - minR, c: anchorC + x.c - minC }));
-    }
     if (activeTool) return [];
     return queue[selectedQueueIndex].shape.map(([dr, dc]) => ({ r: anchorR + dr, c: anchorC + dc }));
   }
 
-  function isPreviewValid(cells, movingId = null) {
+  function isPreviewValid(cells) {
     return cells.length > 0 && cells.every(({ r, c }) => {
       if (r < 0 || r >= SIZE || c < 0 || c >= SIZE) return false;
-      return !board[r][c] || (movingId && board[r][c].pieceId === movingId);
+      return !board[r][c];
     });
   }
 
   function renderBoard() {
     const preview = hoverAnchor ? getPreviewCells(...hoverAnchor) : [];
-    const previewValid = isPreviewValid(preview, movePieceId);
+    const previewValid = isPreviewValid(preview);
     const previewKeys = new Set(preview.map(x => `${x.r}-${x.c}`));
     [...boardEl.children].forEach((cellEl, index) => {
       const r = Math.floor(index / SIZE);
@@ -473,7 +537,6 @@
         cellEl.classList.add('filled');
         if (data.wild) cellEl.classList.add('wild');
         else cellEl.style.background = data.color.value;
-        if (movePieceId && data.pieceId === movePieceId) cellEl.classList.add('piece-selected');
         cellEl.setAttribute('aria-label', `第${r + 1}行第${c + 1}列，${data.wild ? '万能色' : data.color.name}`);
       } else {
         cellEl.setAttribute('aria-label', `第${r + 1}行第${c + 1}列，空格`);
@@ -492,12 +555,10 @@
     if (!activeTool) {
       const selectedFits = hasValidPlacement(queue[selectedQueueIndex].shape);
       statusText.textContent = selectedFits
-        ? (profile.difficulty === 'hard' ? '拖动第一枚棋子到棋盘' : '拖动任意待选棋子到棋盘')
-        : (profile.difficulty === 'hard' ? '当前棋子无处可放，请使用道具' : '所选棋子无处可放，可改选其他棋子');
+        ? '拖动任意待选棋子到棋盘'
+        : '所选棋子无处可放，可改选其他棋子';
       dot.style.background = selectedFits ? '#5ee6a8' : '#ff6577';
-      toolHelp.innerHTML = profile.difficulty === 'hard'
-        ? '<strong>困难模式</strong><p>只能使用待选区最左侧的棋子，放置后队列向前移动。</p>'
-        : '<strong>普通模式</strong><p>可拖动七枚待选棋子中的任意一枚。</p>';
+      toolHelp.innerHTML = `<strong>${modeName(profile.mode)}模式</strong><p>可拖动七枚待选棋子中的任意一枚。</p>`;
     } else if (activeTool === 'wild') {
       statusText.textContent = '选择一个已放置格子，将它变成万能色';
       dot.style.background = '#a979ff';
@@ -505,15 +566,7 @@
     } else if (activeTool === 'hammer') {
       statusText.textContent = '选择一个已放置格子敲除';
       dot.style.background = '#ffd056';
-      toolHelp.innerHTML = '<strong>敲掉一格 · −100分</strong><p>只清除点击的格子。被破坏的多格棋子之后不能再整体移动。</p>';
-    } else if (!movePieceId) {
-      statusText.textContent = '先选择一个完整棋子';
-      dot.style.background = '#58bfff';
-      toolHelp.innerHTML = '<strong>整体移动 · −100分</strong><p>点击完整棋子的任意格。已被敲除或部分消除的棋子不能移动。</p>';
-    } else {
-      statusText.textContent = '再选择新位置的左上角';
-      dot.style.background = '#58bfff';
-      toolHelp.innerHTML = '<strong>整体移动 · 第二步</strong><p>绿色预览表示新位置可用。再次点击原棋子可以取消选择。</p>';
+      toolHelp.innerHTML = '<strong>敲掉一格 · −100分</strong><p>只清除点击的格子。</p>';
     }
   }
 
@@ -521,16 +574,11 @@
     if (resolving || gameEnded) return;
     if (activeTool === 'wild') return applyWild(r, c);
     if (activeTool === 'hammer') return applyHammer(r, c);
-    if (activeTool === 'move') return handleMove(r, c);
     placeSelected(selectedQueueIndex, r, c);
   }
 
   async function placeSelected(index, r, c) {
     if (gameEnded) return false;
-    if (profile.difficulty === 'hard' && index !== 0) {
-      showToast('困难模式必须使用第一枚棋子');
-      return false;
-    }
     const current = queue[index];
     if (!current) return false;
     const targets = current.shape.map(([dr, dc]) => ({ r: r + dr, c: c + dc }));
@@ -538,6 +586,8 @@
       showToast('这里放不下所选棋子');
       return false;
     }
+    undoSnapshot = createUndoSnapshot();
+    hasPlayed = true;
     const id = nextPieceId++;
     const placed = { id, intact: true, color: current.color, cells: [] };
     targets.forEach(pos => {
@@ -548,7 +598,7 @@
     pieces.set(id, placed);
     queue.splice(index, 1);
     queue.push(makeQueuePiece());
-    selectedQueueIndex = profile.difficulty === 'hard' ? 0 : Math.min(index, queue.length - 1);
+    selectedQueueIndex = Math.min(index, queue.length - 1);
     moves++;
     renderAll();
     await resolveLines();
@@ -607,24 +657,35 @@
     });
   }
 
-  function endGameForInsufficientScore() {
+  function endGame(reason) {
     if (gameEnded) return;
-    score = 0;
+    if (reason === 'score') score = 0;
     gameEnded = true;
+    stopTimer();
     activeTool = null;
-    movePieceId = null;
     document.querySelectorAll('.tool-action').forEach(button => {
       button.classList.remove('active');
       button.setAttribute('aria-pressed', 'false');
     });
     recordCurrentGame();
     renderAll();
-    gameOverDialog.showModal();
+    if (resetDialog.open) resetDialog.close('cancel');
+    if (profileDialog.open) profileDialog.close();
+    if (reason === 'time') {
+      gameOverMark.textContent = '⏱';
+      gameOverTitle.textContent = '时间到';
+      gameOverMessage.textContent = `5分钟已结束，本局得分为${score}分。`;
+    } else {
+      gameOverMark.textContent = '0';
+      gameOverTitle.textContent = '游戏结束';
+      gameOverMessage.textContent = '道具费用会使积分低于0，本局得分已停在0分。';
+    }
+    if (!gameOverDialog.open) gameOverDialog.showModal();
   }
 
   function chargeTool() {
     if (score - TOOL_COST < 0) {
-      endGameForInsufficientScore();
+      endGame('score');
       return false;
     }
     score -= TOOL_COST;
@@ -662,6 +723,11 @@
     void clearFlash.offsetWidth;
     clearFlash.classList.add('show');
     await new Promise(resolve => setTimeout(resolve, 390));
+    if (gameEnded) {
+      resolving = false;
+      renderAll();
+      return 0;
+    }
     const affected = new Map();
     keys.forEach(key => {
       const [r, c] = key.split('-').map(Number);
@@ -684,7 +750,7 @@
     const scoreGroups = clearScoreGroups(rows, cols, multiplier);
     score += gained;
     if (score > highScoreFor()) {
-      profile.highScores[profile.difficulty] = score;
+      profile.highScores[profile.mode] = score;
       saveProfileData();
     }
     resolving = false;
@@ -698,6 +764,8 @@
     const data = board[r][c];
     if (!data) { showToast('请选择一个已放置的格子'); return false; }
     if (data.wild) { showToast('这个格子已经是万能色'); return false; }
+    undoSnapshot = createUndoSnapshot();
+    hasPlayed = true;
     data.wild = true;
     const piece = pieces.get(data.pieceId);
     const part = piece?.cells.find(x => x.r === r && x.c === c);
@@ -711,6 +779,8 @@
   function applyHammer(r, c) {
     const data = board[r][c];
     if (!data) { showToast('这里没有可以敲掉的棋子'); return false; }
+    undoSnapshot = createUndoSnapshot();
+    hasPlayed = true;
     const piece = pieces.get(data.pieceId);
     board[r][c] = null;
     if (piece) {
@@ -724,36 +794,18 @@
     return true;
   }
 
-  async function handleMove(r, c) {
-    const data = board[r][c];
-    if (!movePieceId) {
-      if (!data) { showToast('请先选择一个完整棋子'); return false; }
-      const piece = pieces.get(data.pieceId);
-      if (!piece?.intact) { showToast('这个棋子已经残缺，无法整体移动'); return false; }
-      movePieceId = piece.id;
-      renderAll();
-      return true;
-    }
-    if (data?.pieceId === movePieceId) {
-      movePieceId = null;
-      renderAll();
-      return false;
-    }
-    const piece = pieces.get(movePieceId);
-    if (!piece) { movePieceId = null; renderAll(); return false; }
-    const minR = Math.min(...piece.cells.map(x => x.r));
-    const minC = Math.min(...piece.cells.map(x => x.c));
-    const targets = piece.cells.map(x => ({ r: r + x.r - minR, c: c + x.c - minC, wild: x.wild }));
-    if (!isPreviewValid(targets, movePieceId)) { showToast('新位置放不下整个棋子'); return false; }
-    piece.cells.forEach(x => { board[x.r][x.c] = null; });
-    targets.forEach(pos => {
-      board[pos.r][pos.c] = { pieceId: piece.id, color: piece.color, wild: pos.wild };
-    });
-    piece.cells = targets;
-    movePieceId = null;
+  function applyUndo() {
+    toolHelp.classList.remove('show');
+    if (gameEnded) return showToast('本局已经结束');
+    if (resolving) return showToast('请等待消除动画结束');
+    if (!undoSnapshot) return showToast('暂无可撤回的操作');
+    const snapshot = undoSnapshot;
+    undoSnapshot = null;
+    restoreUndoSnapshot(snapshot);
+    hasPlayed = true;
     if (!chargeTool()) return true;
-    const cleared = await resolveLines();
-    if (!cleared) showToast('棋子已移动，−100分');
+    renderAll();
+    showToast('已撤回上一步，−100分');
     return true;
   }
 
@@ -770,7 +822,6 @@
   function setTool(tool) {
     if (gameEnded && tool) return;
     activeTool = tool;
-    movePieceId = null;
     document.querySelectorAll('.tool-action').forEach(btn => {
       const active = btn.dataset.tool === tool;
       btn.classList.toggle('active', active);
@@ -778,8 +829,7 @@
     });
     cancelTool.hidden = !tool;
     if (board) renderAll();
-    if (tool) revealToolHelp();
-    else toolHelp.classList.remove('show');
+    toolHelp.classList.remove('show');
   }
 
   function revealToolHelp() {
@@ -795,33 +845,18 @@
     toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1900);
   }
 
-  function refreshAllCandidates() {
-    if (gameEnded) return { ok: false, reason: '本局已经结束' };
-    if (refreshes <= 0 || resolving) return { ok: false, reason: '没有剩余换色次数' };
-    const before = queue.map(piece => `${piece.color.id}:${JSON.stringify(piece.shape)}`);
-    queue = Array.from({ length: QUEUE_SIZE }, makeQueuePiece);
-    selectedQueueIndex = 0;
-    refreshes--;
-    const unchanged = queue.reduce((total, piece, index) => {
-      const signature = `${piece.color.id}:${JSON.stringify(piece.shape)}`;
-      return total + (signature === before[index] ? 1 : 0);
-    }, 0);
-    renderAll();
-    showToast(unchanged ? `全部刷新完成，其中${unchanged}枚没有变化` : '待选区已全部刷新');
-    return { ok: true, unchanged, refreshes };
-  }
-
   function gameState() {
     return {
       score,
       clearedLines: lines,
       moves,
-      refreshes,
       combo,
       highScore: highScoreFor(),
       highScores: { ...profile.highScores },
-      difficulty: profile.difficulty,
+      mode: profile.mode,
+      timeRemaining: profile.mode === 'timed' ? timeRemaining : null,
       gameEnded,
+      undoAvailable: !!undoSnapshot,
       selectedQueuePosition: selectedQueueIndex + 1,
       candidatePieces: queue.map(piece => ({ color: piece.color.name, size: piece.shape.length, shape: piece.shape })),
       board: board.map(row => row.map(cell => cell ? (cell.wild ? '万能色' : cell.color.name) : null))
@@ -850,7 +885,7 @@
     };
     register({
       name: 'read_game_state', title: '读取本局状态',
-      description: '读取当前棋盘、手牌、得分和剩余换色次数，不改变游戏。',
+      description: '读取当前棋盘、手牌、得分、模式和剩余时间，不改变游戏。',
       inputSchema: { type: 'object', properties: {}, additionalProperties: false },
       annotations: { readOnlyHint: true, untrustedContentHint: false },
       execute: () => gameState()
@@ -878,17 +913,6 @@
       }
     });
     register({
-      name: 'refresh_all_candidates', title: '刷新全部待选棋子',
-      description: '消耗一次机会，重新随机生成七枚待选棋子的形状和颜色；可能出现未变化的棋子。',
-      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
-      annotations: { readOnlyHint: false, untrustedContentHint: false },
-      execute: () => {
-        const result = refreshAllCandidates();
-        if (!result.ok) throw new Error(result.reason);
-        return result;
-      }
-    });
-    register({
       name: 'change_cell_to_wild', title: '将一格变为万能色',
       description: '花费100分，把指定已占用格变为万能颜色，并检查消除；使用次数不限。',
       inputSchema: coordinateSchema,
@@ -913,40 +937,30 @@
       }
     });
     register({
-      name: 'move_intact_piece', title: '整体移动棋子',
-      description: '花费100分，将来源格所属的完整棋子整体平移，以目标格作为新形状左上角；使用次数不限。',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          sourceRow: { type: 'integer', minimum: 1, maximum: 7 },
-          sourceColumn: { type: 'integer', minimum: 1, maximum: 7 },
-          targetRow: { type: 'integer', minimum: 1, maximum: 7 },
-          targetColumn: { type: 'integer', minimum: 1, maximum: 7 }
-        },
-        required: ['sourceRow', 'sourceColumn', 'targetRow', 'targetColumn'],
-        additionalProperties: false
-      },
+      name: 'undo_last_action', title: '撤回上一步',
+      description: '花费100分，恢复最近一次落子或道具操作前的棋盘与待选区；不会恢复限时模式已经流逝的时间。',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
       annotations: { readOnlyHint: false, untrustedContentHint: false },
-      execute: async input => {
-        const sr = assertCoordinate(input.sourceRow, 'sourceRow');
-        const sc = assertCoordinate(input.sourceColumn, 'sourceColumn');
-        const tr = assertCoordinate(input.targetRow, 'targetRow');
-        const tc = assertCoordinate(input.targetColumn, 'targetColumn');
-        setTool('move');
-        if (!(await handleMove(sr, sc))) throw new Error('来源格不属于可移动的完整棋子');
-        if (!(await handleMove(tr, tc))) throw new Error('整个棋子无法移动到目标位置');
+      execute: () => {
+        if (!applyUndo()) throw new Error('当前没有可撤回的操作');
         return gameState();
       }
     });
   }
 
   document.querySelectorAll('.tool-action').forEach(button => {
-    button.addEventListener('click', () => setTool(activeTool === button.dataset.tool ? null : button.dataset.tool));
+    button.addEventListener('click', () => {
+      if (button.dataset.tool === 'undo') {
+        applyUndo();
+        return;
+      }
+      setTool(activeTool === button.dataset.tool ? null : button.dataset.tool);
+    });
   });
   const toolCopy = {
     wild: ['万能颜色 · −100分', '选择棋盘上的一格，将它变成可适配任意颜色的万能格；多格棋子也只改变这一格。'],
     hammer: ['敲掉一格 · −100分', '选择棋盘上的一格将其移除；多格棋子只会被敲掉所选的一格。'],
-    move: ['整体移动 · −100分', '先选择一个完整的已放置棋子，再选择新位置；保持原形状且不能旋转。']
+    undo: ['撤回上一步 · −100分', '恢复最近一次落子或道具操作前的棋盘与待选区；限时模式不会恢复已经流逝的时间。']
   };
   document.querySelectorAll('.tool-info').forEach(button => {
     button.addEventListener('click', event => {
@@ -957,7 +971,6 @@
     });
   });
   cancelTool.addEventListener('click', () => setTool(null));
-  refreshButton.addEventListener('click', refreshAllCandidates);
   document.querySelector('#resetButton').addEventListener('click', () => resetDialog.showModal());
   resetDialog.addEventListener('close', () => {
     if (resetDialog.returnValue === 'confirm') {
@@ -970,21 +983,21 @@
   });
   document.querySelector('#profileButton').addEventListener('click', () => {
     pendingAvatar = profile.avatar;
-    pendingDifficulty = profile.difficulty;
+    pendingMode = profile.mode;
     updateProfileUI();
     profileDialog.showModal();
   });
   document.querySelector('#closeProfile').addEventListener('click', () => profileDialog.close());
-  document.querySelectorAll('[data-difficulty]').forEach(button => {
+  document.querySelectorAll('[data-mode]').forEach(button => {
     button.addEventListener('click', () => {
-      pendingDifficulty = button.dataset.difficulty;
-      document.querySelectorAll('[data-difficulty]').forEach(option => {
-        option.setAttribute('aria-checked', option.dataset.difficulty === pendingDifficulty ? 'true' : 'false');
+      pendingMode = button.dataset.mode;
+      document.querySelectorAll('[data-mode]').forEach(option => {
+        option.setAttribute('aria-checked', option.dataset.mode === pendingMode ? 'true' : 'false');
       });
-      profileHighScore.textContent = highScoreFor(pendingDifficulty);
-      profileScoreMode.textContent = pendingDifficulty === 'hard' ? '困难模式最高分' : '普通模式最高分';
-      recentTitle.textContent = pendingDifficulty === 'hard' ? '困难模式最近五局' : '普通模式最近五局';
-      renderRecentScores(pendingDifficulty);
+      profileHighScore.textContent = highScoreFor(pendingMode);
+      profileScoreMode.textContent = `${modeName(pendingMode)}模式最高分`;
+      recentTitle.textContent = `${modeName(pendingMode)}模式最近五局`;
+      renderRecentScores(pendingMode);
     });
   });
   avatarInput.addEventListener('change', () => {
@@ -1004,14 +1017,14 @@
   });
   document.querySelector('#saveProfile').addEventListener('click', () => {
     const nextName = usernameInput.value.trim().slice(0, 12) || '玩家';
-    const difficultyChanged = pendingDifficulty !== profile.difficulty;
-    if (difficultyChanged) recordCurrentGame();
+    const modeChanged = pendingMode !== profile.mode;
+    if (modeChanged) recordCurrentGame();
     profile.username = nextName;
     profile.avatar = pendingAvatar;
-    profile.difficulty = pendingDifficulty;
+    profile.mode = pendingMode;
     saveProfileData();
     profileDialog.close();
-    if (difficultyChanged) initGame();
+    if (modeChanged) initGame();
     else {
       updateProfileUI();
       renderAll();
@@ -1020,7 +1033,7 @@
   });
   profileDialog.addEventListener('close', () => {
     pendingAvatar = profile.avatar;
-    pendingDifficulty = profile.difficulty;
+    pendingMode = profile.mode;
     avatarInput.value = '';
   });
   document.addEventListener('keydown', event => {
@@ -1029,7 +1042,7 @@
 
   profile = loadProfile();
   pendingAvatar = profile.avatar;
-  pendingDifficulty = profile.difficulty;
+  pendingMode = profile.mode;
   createCells();
   initGame();
   registerWebMCP();
