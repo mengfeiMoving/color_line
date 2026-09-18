@@ -17,7 +17,7 @@
         <span id="headerAvatarFallback">玩</span>
       </button>
       <div class="game-title">
-        <h1>同色成线<span id="modeLabel">丨普通模式</span></h1>
+        <h1>同色成线<span id="modeLabel">丨无尽模式</span></h1>
       </div>
     </header>
 
@@ -36,13 +36,9 @@
     <section class="queue-panel" aria-labelledby="queueTitle">
       <div class="queue-heading">
         <h2 id="queueTitle">待选区</h2>
-        <button class="refresh-button" id="refreshButton" type="button" aria-label="刷新全部待选棋子，剩余10次" title="刷新全部待选棋子">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66M20 4v7h-7" /></svg>
-          <span class="sr-only" id="refreshCount">10</span>
-        </button>
       </div>
       <div class="queue" id="queue" aria-label="七个待选棋子"></div>
-      <p class="queue-note sr-only" id="queueNote">普通模式可任选一枚；刷新会同时重抽全部棋子的形状和颜色。</p>
+      <p class="queue-note sr-only" id="queueNote">两种模式都可从七枚待选棋子中任选一枚。</p>
     </section>
 
     <section class="board-card">
@@ -51,7 +47,7 @@
           <span class="status-dot" aria-hidden="true"></span>
           <span id="statusText">从待选区拖动任意棋子到棋盘</span>
         </div>
-        <span class="board-size">7 × 7</span>
+        <span class="board-size" id="timeDisplay" aria-label="无尽模式，不限时">不限时</span>
       </div>
       <div class="board-wrap">
         <div class="board" id="board" role="grid" aria-label="7乘7游戏棋盘"></div>
@@ -74,10 +70,10 @@
             <span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m14 5 5 5M12.5 6.5l5 5M4 20l8.5-8.5M3 21l4-1-3-3-1 4Z" /></svg></span><strong>敲除</strong><b>−100</b>
           </button>
         </div>
-        <div class="tool-tile" data-tool="move">
-          <button class="tool-info" data-info="move" type="button" aria-label="查看整体移动说明">!</button>
-          <button class="tool-action" data-tool="move" type="button" aria-pressed="false">
-            <span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20M12 2l-3 3m3-3 3 3M12 22l-3-3m3 3 3-3M2 12l3-3m-3 3 3 3M22 12l-3-3m3 3-3 3" /></svg></span><strong>移动</strong><b>−100</b>
+        <div class="tool-tile" data-tool="undo">
+          <button class="tool-info" data-info="undo" type="button" aria-label="查看撤回说明">!</button>
+          <button class="tool-action" data-tool="undo" type="button" aria-pressed="false">
+            <span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 7 4 12l5 5M5 12h8a6 6 0 0 1 6 6" /></svg></span><strong>撤回</strong><b>−100</b>
           </button>
         </div>
       </div>
@@ -92,7 +88,7 @@
     <form method="dialog">
       <span class="dialog-mark">↻</span>
       <h2>重新开始？</h2>
-      <p>本次得分会计入最近记录，棋盘和刷新次数会重置。</p>
+      <p>本次得分会计入最近记录，棋盘与计时会重置。</p>
       <div>
         <button value="cancel" class="secondary">继续本局</button>
         <button value="confirm" class="primary">重新开始</button>
@@ -101,9 +97,9 @@
   </dialog>
   <dialog class="reset-dialog game-over-dialog" id="gameOverDialog">
     <form method="dialog">
-      <span class="dialog-mark">0</span>
-      <h2>游戏结束</h2>
-      <p>道具费用会使积分低于0，本局得分已停在0分。</p>
+      <span class="dialog-mark" id="gameOverMark">0</span>
+      <h2 id="gameOverTitle">游戏结束</h2>
+      <p id="gameOverMessage">道具费用会使积分低于0，本局得分已停在0分。</p>
       <div class="single-action">
         <button value="restart" class="primary">开始新一局</button>
       </div>
@@ -125,27 +121,29 @@
         <label class="name-field"><span>用户名</span><input id="usernameInput" maxlength="12" autocomplete="nickname" /></label>
       </section>
       <section class="profile-score">
-        <span id="profileScoreMode">普通模式最高分</span><strong id="profileHighScore">0</strong>
+        <span id="profileScoreMode">无尽模式最高分</span><strong id="profileHighScore">0</strong>
       </section>
       <section class="profile-section">
-        <h3>游戏难度</h3>
-        <div class="difficulty-options" role="radiogroup" aria-label="选择游戏难度">
-          <button type="button" data-difficulty="normal" role="radio"><strong>普通</strong><small>七枚棋子任选</small></button>
-          <button type="button" data-difficulty="hard" role="radio"><strong>困难</strong><small>必须按顺序使用</small></button>
+        <h3>游戏模式</h3>
+        <div class="mode-options" role="radiogroup" aria-label="选择游戏模式">
+          <button type="button" data-mode="endless" role="radio"><strong>无尽</strong><small>不限时，七枚任选</small></button>
+          <button type="button" data-mode="timed" role="radio"><strong>限时</strong><small>5分钟，七枚任选</small></button>
         </div>
-        <p class="setting-note">切换难度后会开始新一局。</p>
+        <p class="setting-note">切换模式后会开始新一局。</p>
       </section>
       <section class="profile-section">
-        <h3 id="recentTitle">普通模式最近五局</h3>
+        <h3 id="recentTitle">无尽模式最近五局</h3>
         <ol class="recent-list" id="recentList"></ol>
       </section>
       <details class="rules-panel">
         <summary>查看游戏规则</summary>
         <ul>
           <li>将棋子拖入7×7棋盘，填满同色整行或整列即可消除。</li>
+          <li>棋子不会生成Z形，也不会生成横向或竖向连续四格的形状。</li>
+          <li>无尽模式不限时；限时模式为5分钟。两种模式均可从七枚待选棋子中任选。</li>
           <li>连续操作均完成消除时，得分倍率依次变为×2、×4、×8。</li>
-          <li>刷新会同时随机更换待选区全部棋子的形状与颜色，共10次。</li>
-          <li>万能色、敲除和移动道具不限使用次数，每次成功使用扣除100分；扣分后不足0分则本局结束，得分停在0分。</li>
+          <li>万能色、敲除和撤回道具不限使用次数，每次成功使用扣除100分；扣分后不足0分则本局结束，得分停在0分。</li>
+          <li>撤回可恢复最近一次落子或道具操作发生前的棋盘与待选区；限时模式不会恢复已经流逝的时间。</li>
         </ul>
       </details>
       <button class="save-profile" id="saveProfile" type="button">保存设置</button>
