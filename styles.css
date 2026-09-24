@@ -882,7 +882,7 @@ body { min-height: 100svh; overflow: hidden; }
   box-shadow: 0 28px 100px rgba(36,52,84,.30);
   text-align: center;
 }
-.achievement-info-close { position: absolute; z-index: 3; top: 14px; right: 14px; }
+.achievement-info-close { position: absolute; z-index: 6; top: 14px; right: 14px; }
 .achievement-info-icon {
   position: relative;
   z-index: 2;
@@ -930,7 +930,7 @@ body { min-height: 100svh; overflow: hidden; }
   font-weight: 900;
   cursor: pointer;
 }
-.achievement-star-field { position: absolute; z-index: 1; inset: 0; overflow: hidden; pointer-events: none; }
+.achievement-star-field { position: absolute; z-index: 4; inset: 0; overflow: hidden; pointer-events: none; }
 .achievement-star-field i {
   --star-left: 50%;
   --star-drift: 0px;
