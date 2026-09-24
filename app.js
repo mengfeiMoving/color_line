@@ -340,6 +340,15 @@
     return achievementDefinitions().filter(item => item.current >= item.target).map(item => item.id);
   }
 
+  function acknowledgeAchievementCategory(category) {
+    const completed = achievementDefinitions()
+      .filter(item => item.category === category && item.current >= item.target)
+      .map(item => item.id);
+    profile.seenAchievements = [...new Set([...profile.seenAchievements, ...completed])];
+    saveProfileData();
+    updateNotificationDots();
+  }
+
   function dailyTaskDefinitions() {
     ensureDailyState();
     const color = COLORS.find(item => item.id === profile.daily.colorId) || COLORS[0];
@@ -379,6 +388,7 @@
     Object.entries(ACHIEVEMENT_CATEGORY_META).forEach(([category, meta]) => {
       const items = all.filter(item => item.category === category);
       const completed = items.filter(item => item.current >= item.target).length;
+      const hasUnseenCompletion = items.some(item => item.current >= item.target && !profile.seenAchievements.includes(item.id));
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'achievement-category-card';
@@ -404,7 +414,16 @@
       const arrow = document.createElement('b');
       arrow.textContent = '›';
       button.append(icon, copy, state, arrow);
-      button.addEventListener('click', () => renderAchievements(category));
+      if (hasUnseenCompletion) {
+        const dot = document.createElement('i');
+        dot.className = 'notification-dot category-notification-dot show';
+        dot.setAttribute('aria-hidden', 'true');
+        button.appendChild(dot);
+      }
+      button.addEventListener('click', () => {
+        acknowledgeAchievementCategory(category);
+        renderAchievements(category);
+      });
       achievementCategoryList.appendChild(button);
     });
   }
@@ -1423,10 +1442,7 @@
   });
 
   document.querySelector('#achievementButton').addEventListener('click', () => {
-    profile.seenAchievements = [...new Set([...profile.seenAchievements, ...completedAchievementIds()])];
-    saveProfileData();
     renderAchievementOverview();
-    updateNotificationDots();
     achievementDialog.showModal();
   });
   document.querySelector('#dailyButton').addEventListener('click', () => {
