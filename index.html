@@ -186,17 +186,21 @@
         <div><span class="eyebrow">COLLECTION</span><h2>成就图鉴</h2></div>
         <button class="close-button" id="closeAchievement" type="button" aria-label="关闭成就">×</button>
       </header>
-      <div class="achievement-tabs" role="tablist" aria-label="成就分类">
-        <button type="button" data-achievement-category="coral" role="tab">红色</button>
-        <button type="button" data-achievement-category="yellow" role="tab">黄色</button>
-        <button type="button" data-achievement-category="blue" role="tab">蓝色</button>
-        <button type="button" data-achievement-category="progress" role="tab">进度</button>
-      </div>
       <section class="collection-progress" aria-label="成就收集进度">
         <div><span>成就收集</span><strong id="achievementPercent">0%</strong></div>
         <div class="progress-track"><i id="achievementProgressFill"></i></div>
       </section>
-      <div class="achievement-list" id="achievementList"></div>
+      <section class="achievement-overview" id="achievementOverview">
+        <p class="system-guide">选择一种成就类型，查看具体内容与达成条件。</p>
+        <div class="achievement-category-list" id="achievementCategoryList"></div>
+      </section>
+      <section class="achievement-detail" id="achievementDetail" hidden>
+        <div class="achievement-detail-head">
+          <button class="detail-back-button" id="achievementBack" type="button" aria-label="返回成就类型">‹</button>
+          <div><strong id="achievementDetailTitle">红色成就</strong><small id="achievementDetailSummary"></small></div>
+        </div>
+        <div class="achievement-list" id="achievementList"></div>
+      </section>
     </div>
   </dialog>
 
