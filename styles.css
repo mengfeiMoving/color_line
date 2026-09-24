@@ -951,7 +951,7 @@ body { min-height: 100svh; overflow: hidden; }
 @keyframes achievementStarRise {
   0% { opacity: 0; transform: translate3d(0, 12px, 0) scale(.65) rotate(0deg); }
   18% { opacity: 1; }
-  100% { opacity: 0; transform: translate3d(var(--star-drift), -250px, 0) scale(1.18) rotate(80deg); }
+  100% { opacity: 0; transform: translate3d(var(--star-drift), -200px, 0) scale(1.18) rotate(80deg); }
 }
 @media (prefers-reduced-motion: reduce) {
   .achievement-star-field i { animation-duration: .45s; }
