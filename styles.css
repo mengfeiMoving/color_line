@@ -315,7 +315,7 @@ button { font: inherit; }
 .tool-heading.compact .cancel-tool { width: auto; margin: 0; padding: 7px 11px; }
 .tool-tile { aspect-ratio: 1.35; }
 .drag-ghost { min-width: 0; min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; transform: translate(-50%, -50%); }
-.drag-piece { display: grid; gap: 5px; filter: drop-shadow(0 10px 12px rgba(40,52,82,.22)); }
+.drag-piece { display: grid; gap: 2px; filter: drop-shadow(0 10px 12px rgba(40,52,82,.22)); }
 .drag-cell { width: var(--cell); height: var(--cell); border-radius: 10px; box-shadow: inset 0 3px 3px rgba(255,255,255,.35), inset 0 -5px 9px rgba(61,72,99,.12); }
 
 .profile-dialog { width: min(520px, calc(100% - 24px)); max-height: min(760px, calc(100vh - 32px)); padding: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 25px; color: var(--text); background: #fff; box-shadow: 0 28px 100px rgba(36,52,84,.25); }
