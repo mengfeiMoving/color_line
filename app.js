@@ -3,6 +3,7 @@
   const QUEUE_SIZE = 7;
   const TOOL_COST = 100;
   const TIMED_DURATION_SECONDS = 5 * 60;
+  const ENDLESS_SCORE_TARGETS = [500, 700, 1000, 1500];
   const PROFILE_KEY = 'chroma-lines-profile-v1';
   const COLORS = [
     { id: 'coral', name: '珊瑚红', value: '#ff6577' },
@@ -40,6 +41,7 @@
   const profileDialog = document.querySelector('#profileDialog');
   const clearFlash = document.querySelector('#clearFlash');
   const modeLabel = document.querySelector('#modeLabel');
+  const progressLabel = document.querySelector('#progressLabel');
   const timeDisplay = document.querySelector('#timeDisplay');
   const queueNote = document.querySelector('#queueNote');
   const headerAvatar = document.querySelector('#headerAvatar');
@@ -289,16 +291,23 @@
 
   function updateTimerDisplay() {
     if (profile.mode === 'endless') {
-      timeDisplay.textContent = '不限时';
-      timeDisplay.setAttribute('aria-label', '无尽模式，不限时');
+      const target = ENDLESS_SCORE_TARGETS.find(value => score < value);
+      progressLabel.textContent = '目标分数';
+      timeDisplay.textContent = target ?? '已完成';
+      timeDisplay.setAttribute('aria-label', target
+        ? `无尽模式，当前目标${target}分`
+        : '无尽模式，全部目标已完成');
       timeDisplay.classList.remove('urgent');
+      timeDisplay.parentElement.classList.remove('urgent');
       return;
     }
     const minutes = Math.floor(timeRemaining / 60);
     const seconds = String(timeRemaining % 60).padStart(2, '0');
+    progressLabel.textContent = '剩余时间';
     timeDisplay.textContent = `${minutes}:${seconds}`;
     timeDisplay.setAttribute('aria-label', `限时模式，剩余${minutes}分${seconds}秒`);
     timeDisplay.classList.toggle('urgent', timeRemaining <= 30);
+    timeDisplay.parentElement.classList.toggle('urgent', timeRemaining <= 30);
   }
 
   function updateTimer() {
@@ -869,6 +878,7 @@
       highScores: { ...profile.highScores },
       mode: profile.mode,
       timeRemaining: profile.mode === 'timed' ? timeRemaining : null,
+      targetScore: profile.mode === 'endless' ? (ENDLESS_SCORE_TARGETS.find(value => score < value) ?? null) : null,
       gameEnded,
       undoAvailable: !!undoSnapshot,
       selectedQueuePosition: selectedQueueIndex + 1,
