@@ -10,8 +10,43 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <main class="app-shell">
+  <main class="home-screen" id="homeScreen">
+    <button class="home-profile-button" id="homeProfileButton" type="button" aria-label="打开个人中心">
+      <img id="homeAvatar" alt="" hidden />
+      <span id="homeAvatarFallback">玩</span>
+    </button>
+    <nav class="home-quick-actions" aria-label="进度系统">
+      <button class="home-square-action" id="achievementButton" type="button" aria-label="查看成就">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8v4a4 4 0 0 1-8 0V4Zm0 2H5v1a4 4 0 0 0 4 4m7-5h3v1a4 4 0 0 1-4 4M12 12v4m-3 4h6m-5-4h4" /></svg>
+        <span>成就</span><i class="notification-dot" data-notification="achievement" aria-hidden="true"></i>
+      </button>
+      <button class="home-square-action" id="dailyButton" type="button" aria-label="查看每日任务">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v3m12-3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Zm3 8 2 2 5-5" /></svg>
+        <span>每日</span><i class="notification-dot" data-notification="daily" aria-hidden="true"></i>
+      </button>
+    </nav>
+    <section class="home-hero">
+      <div class="home-logo" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <p class="home-kicker">COLOR LINE</p>
+      <h1>同色成线</h1>
+      <p class="home-copy">选择模式，拖动同色棋子填满整行或整列。</p>
+      <div class="mode-entry-list" aria-label="选择游戏模式">
+        <button class="mode-entry timed-entry" type="button" data-start-mode="timed">
+          <span><strong>限时模式</strong><small>5分钟内挑战最高分</small></span><b>开始</b>
+        </button>
+        <button class="mode-entry endless-entry" type="button" data-start-mode="endless">
+          <span><strong>无尽模式</strong><small>逐级完成目标分数</small></span><b>开始</b>
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <main class="app-shell game-screen" id="gameScreen" hidden>
     <header class="game-header">
+      <button class="back-button" id="backHomeButton" type="button" aria-label="返回首页">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6" /></svg>
+        <i class="notification-dot" data-notification="back" aria-hidden="true"></i>
+      </button>
       <button class="profile-button" id="profileButton" type="button" aria-label="打开个人中心">
         <img id="headerAvatar" alt="" hidden />
         <span id="headerAvatarFallback">玩</span>
@@ -115,24 +150,16 @@
         <button id="closeProfile" class="close-button" type="button" aria-label="关闭个人中心">×</button>
       </div>
       <section class="identity-editor">
-        <label class="avatar-editor" for="avatarInput">
+        <label class="avatar-editor">
           <img id="profileAvatar" alt="头像预览" hidden />
           <span id="profileAvatarFallback">玩</span>
           <b>更换</b>
+          <input id="avatarInput" type="file" accept="image/*" aria-label="选择头像图片" />
         </label>
-        <input id="avatarInput" type="file" accept="image/*" hidden />
         <label class="name-field"><span>用户名</span><input id="usernameInput" maxlength="12" autocomplete="nickname" /></label>
       </section>
       <section class="profile-score">
         <span id="profileScoreMode">无尽模式最高分</span><strong id="profileHighScore">0</strong>
-      </section>
-      <section class="profile-section">
-        <h3>游戏模式</h3>
-        <div class="mode-options" role="radiogroup" aria-label="选择游戏模式">
-          <button type="button" data-mode="endless" role="radio"><strong>无尽</strong><small>目标分数逐级推进，七枚任选</small></button>
-          <button type="button" data-mode="timed" role="radio"><strong>限时</strong><small>5分钟，七枚任选</small></button>
-        </div>
-        <p class="setting-note">切换模式后会开始新一局。</p>
       </section>
       <section class="profile-section">
         <h3 id="recentTitle">无尽模式最近五局</h3>
@@ -150,6 +177,37 @@
         </ul>
       </details>
       <button class="save-profile" id="saveProfile" type="button">保存设置</button>
+    </div>
+  </dialog>
+
+  <dialog class="system-dialog" id="achievementDialog">
+    <div class="system-sheet">
+      <header class="system-sheet-head">
+        <div><span class="eyebrow">COLLECTION</span><h2>成就图鉴</h2></div>
+        <button class="close-button" id="closeAchievement" type="button" aria-label="关闭成就">×</button>
+      </header>
+      <div class="achievement-tabs" role="tablist" aria-label="成就分类">
+        <button type="button" data-achievement-category="coral" role="tab">红色</button>
+        <button type="button" data-achievement-category="yellow" role="tab">黄色</button>
+        <button type="button" data-achievement-category="blue" role="tab">蓝色</button>
+        <button type="button" data-achievement-category="progress" role="tab">进度</button>
+      </div>
+      <section class="collection-progress" aria-label="成就收集进度">
+        <div><span>成就收集</span><strong id="achievementPercent">0%</strong></div>
+        <div class="progress-track"><i id="achievementProgressFill"></i></div>
+      </section>
+      <div class="achievement-list" id="achievementList"></div>
+    </div>
+  </dialog>
+
+  <dialog class="system-dialog" id="dailyDialog">
+    <div class="system-sheet">
+      <header class="system-sheet-head">
+        <div><span class="eyebrow">TODAY</span><h2>每日任务</h2></div>
+        <button class="close-button" id="closeDaily" type="button" aria-label="关闭每日任务">×</button>
+      </header>
+      <p class="daily-reset-note">任务按本地日期每日刷新。</p>
+      <div class="daily-list" id="dailyList"></div>
     </div>
   </dialog>
   <script src="./app.js"></script>
