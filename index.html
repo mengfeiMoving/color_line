@@ -7,7 +7,7 @@
   <meta name="description" content="同色整行或整列消除玩法测试版" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Crect x='6' y='6' width='8' height='8' rx='2' fill='%23ff6b7a'/%3E%3Crect x='18' y='6' width='8' height='8' rx='2' fill='%235ac8fa'/%3E%3Crect x='6' y='18' width='8' height='8' rx='2' fill='%23ffd65a'/%3E%3Crect x='18' y='18' width='8' height='8' rx='2' fill='%23a77bff'/%3E%3C/svg%3E" />
   <title>同色成线 · 玩法测试</title>
-  <link rel="stylesheet" href="./styles.css?v=20260924-unread" />
+  <link rel="stylesheet" href="./styles.css?v=20260924-achievement-detail" />
 </head>
 <body>
   <main class="home-screen" id="homeScreen">
@@ -204,6 +204,22 @@
     </div>
   </dialog>
 
+  <dialog class="achievement-info-dialog" id="achievementInfoDialog">
+    <div class="achievement-info-card">
+      <div class="achievement-star-field" id="achievementStarField" aria-hidden="true"></div>
+      <button class="close-button achievement-info-close" id="closeAchievementInfo" type="button" aria-label="关闭成就详情">×</button>
+      <span class="achievement-info-icon" id="achievementInfoIcon" aria-hidden="true">◆</span>
+      <span class="eyebrow">ACHIEVEMENT</span>
+      <h3 id="achievementInfoTitle">成就名称</h3>
+      <p id="achievementInfoCondition">达成条件</p>
+      <section class="achievement-info-progress" id="achievementInfoProgress" aria-label="成就进度">
+        <div><span id="achievementInfoStatusLabel">当前进度</span><strong id="achievementInfoStatus">0 / 3</strong></div>
+        <div class="progress-track"><i id="achievementInfoProgressFill"></i></div>
+      </section>
+      <button class="achievement-info-confirm" id="confirmAchievementInfo" type="button">我知道了</button>
+    </div>
+  </dialog>
+
   <dialog class="system-dialog" id="dailyDialog">
     <div class="system-sheet">
       <header class="system-sheet-head">
@@ -214,6 +230,6 @@
       <div class="daily-list" id="dailyList"></div>
     </div>
   </dialog>
-  <script src="./app.js?v=20260924-unread"></script>
+  <script src="./app.js?v=20260924-achievement-detail"></script>
 </body>
 </html>
