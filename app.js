@@ -476,15 +476,26 @@
   }
 
   function dragAnchorAtPoint(x, y, piece) {
-    const target = document.elementFromPoint(x, y)?.closest('.cell');
-    if (!target) return null;
+    const boardRect = boardEl.getBoundingClientRect();
+    if (x < boardRect.left || x > boardRect.right || y < boardRect.top || y > boardRect.bottom) return null;
+
+    const firstCell = boardEl.querySelector('.cell');
+    if (!firstCell) return null;
+    const cellRect = firstCell.getBoundingClientRect();
+    const boardStyle = getComputedStyle(boardEl);
+    const columnGap = Number.parseFloat(boardStyle.columnGap) || 0;
+    const rowGap = Number.parseFloat(boardStyle.rowGap) || 0;
     const bounds = shapeBounds(piece.shape);
-    // The drag preview is centered on the pointer. For an even-sized shape,
-    // use the lower/right center cell as the pointer cell so the placed piece
-    // does not drift one grid space toward the bottom-right.
+
+    // Snap the centered drag preview to the nearest board origin. This avoids
+    // forcing even-width/height shapes a whole cell to either side of the pointer.
+    const pieceWidth = bounds.cols * cellRect.width + (bounds.cols - 1) * columnGap;
+    const pieceHeight = bounds.rows * cellRect.height + (bounds.rows - 1) * rowGap;
+    const columnPitch = cellRect.width + columnGap;
+    const rowPitch = cellRect.height + rowGap;
     return [
-      Number(target.dataset.row) - Math.floor(bounds.rows / 2),
-      Number(target.dataset.col) - Math.floor(bounds.cols / 2)
+      Math.round((y - boardRect.top - pieceHeight / 2) / rowPitch),
+      Math.round((x - boardRect.left - pieceWidth / 2) / columnPitch)
     ];
   }
 
