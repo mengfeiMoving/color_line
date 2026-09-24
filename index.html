@@ -21,11 +21,15 @@
       </div>
     </header>
 
-    <section class="score-row" aria-label="得分信息">
+    <section class="score-row" aria-label="得分与游戏进度">
       <div class="score-card current-score">
         <span>本次得分</span>
         <strong id="score">0</strong>
         <em id="comboBadge" hidden>连消 ×2</em>
+      </div>
+      <div class="score-card progress-score">
+        <span id="progressLabel">目标分数</span>
+        <strong id="timeDisplay" aria-label="无尽模式，当前目标500分">500</strong>
       </div>
       <div class="score-card best-score">
         <span>历史最高</span>
@@ -47,7 +51,6 @@
           <span class="status-dot" aria-hidden="true"></span>
           <span id="statusText">从待选区拖动任意棋子到棋盘</span>
         </div>
-        <span class="board-size" id="timeDisplay" aria-label="无尽模式，不限时">不限时</span>
       </div>
       <div class="board-wrap">
         <div class="board" id="board" role="grid" aria-label="7乘7游戏棋盘"></div>
@@ -126,7 +129,7 @@
       <section class="profile-section">
         <h3>游戏模式</h3>
         <div class="mode-options" role="radiogroup" aria-label="选择游戏模式">
-          <button type="button" data-mode="endless" role="radio"><strong>无尽</strong><small>不限时，七枚任选</small></button>
+          <button type="button" data-mode="endless" role="radio"><strong>无尽</strong><small>目标分数逐级推进，七枚任选</small></button>
           <button type="button" data-mode="timed" role="radio"><strong>限时</strong><small>5分钟，七枚任选</small></button>
         </div>
         <p class="setting-note">切换模式后会开始新一局。</p>
@@ -140,7 +143,7 @@
         <ul>
           <li>将棋子拖入7×7棋盘，填满同色整行或整列即可消除。</li>
           <li>棋子不会生成Z形，也不会生成横向或竖向连续四格的形状。</li>
-          <li>无尽模式不限时；限时模式为5分钟。两种模式均可从七枚待选棋子中任选。</li>
+          <li>无尽模式不限时，目标分数依次为500、700、1000和1500分；限时模式为5分钟。两种模式均可从七枚待选棋子中任选。</li>
           <li>连续操作均完成消除时，得分倍率依次变为×2、×4、×8。</li>
           <li>万能色、敲除和撤回道具不限使用次数，每次成功使用扣除100分；扣分后不足0分则本局结束，得分停在0分。</li>
           <li>撤回可恢复最近一次落子或道具操作发生前的棋盘与待选区；限时模式不会恢复已经流逝的时间。</li>
