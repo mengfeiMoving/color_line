@@ -73,6 +73,7 @@
   const gameOverTitle = document.querySelector('#gameOverTitle');
   const gameOverMessage = document.querySelector('#gameOverMessage');
   const achievementDialog = document.querySelector('#achievementDialog');
+  const achievementInfoDialog = document.querySelector('#achievementInfoDialog');
   const dailyDialog = document.querySelector('#dailyDialog');
   const achievementList = document.querySelector('#achievementList');
   const achievementOverview = document.querySelector('#achievementOverview');
@@ -82,6 +83,14 @@
   const achievementDetailSummary = document.querySelector('#achievementDetailSummary');
   const achievementPercent = document.querySelector('#achievementPercent');
   const achievementProgressFill = document.querySelector('#achievementProgressFill');
+  const achievementStarField = document.querySelector('#achievementStarField');
+  const achievementInfoIcon = document.querySelector('#achievementInfoIcon');
+  const achievementInfoTitle = document.querySelector('#achievementInfoTitle');
+  const achievementInfoCondition = document.querySelector('#achievementInfoCondition');
+  const achievementInfoProgress = document.querySelector('#achievementInfoProgress');
+  const achievementInfoStatusLabel = document.querySelector('#achievementInfoStatusLabel');
+  const achievementInfoStatus = document.querySelector('#achievementInfoStatus');
+  const achievementInfoProgressFill = document.querySelector('#achievementInfoProgressFill');
   const dailyList = document.querySelector('#dailyList');
 
   let board;
@@ -340,13 +349,51 @@
     return achievementDefinitions().filter(item => item.current >= item.target).map(item => item.id);
   }
 
-  function acknowledgeAchievementCategory(category) {
-    const completed = achievementDefinitions()
-      .filter(item => item.category === category && item.current >= item.target)
-      .map(item => item.id);
-    profile.seenAchievements = [...new Set([...profile.seenAchievements, ...completed])];
+  function acknowledgeAchievement(id) {
+    profile.seenAchievements = [...new Set([...profile.seenAchievements, id])];
     saveProfileData();
     updateNotificationDots();
+  }
+
+  function playAchievementStars() {
+    const paths = [
+      [10, -22, 0, 15], [18, 12, 90, 11], [26, -8, 180, 18], [35, 24, 40, 13],
+      [44, -18, 140, 10], [53, 18, 220, 16], [61, -26, 70, 12], [70, 10, 170, 18],
+      [78, -14, 260, 11], [86, 22, 110, 15], [31, -30, 300, 9], [67, 30, 330, 10]
+    ];
+    achievementStarField.innerHTML = '';
+    paths.forEach(([left, drift, delay, size], index) => {
+      const star = document.createElement('i');
+      star.textContent = index % 3 === 0 ? '✧' : '✦';
+      star.style.setProperty('--star-left', `${left}%`);
+      star.style.setProperty('--star-drift', `${drift}px`);
+      star.style.setProperty('--star-delay', `${delay}ms`);
+      star.style.setProperty('--star-size', `${size}px`);
+      achievementStarField.appendChild(star);
+    });
+  }
+
+  function openAchievementInfo(item, row, state) {
+    const complete = item.current >= item.target;
+    const newlyCompleted = complete && !profile.seenAchievements.includes(item.id);
+    achievementInfoDialog.dataset.category = item.category;
+    achievementInfoIcon.textContent = item.icon;
+    achievementInfoTitle.textContent = item.title;
+    achievementInfoCondition.textContent = `达成条件：${item.condition}`;
+    achievementInfoProgress.classList.toggle('complete', complete && !newlyCompleted);
+    achievementInfoStatusLabel.textContent = complete && !newlyCompleted ? '完成状态' : '当前进度';
+    achievementInfoStatus.textContent = complete && !newlyCompleted
+      ? '已达成'
+      : `${Math.min(item.current, item.target)} / ${item.target}`;
+    achievementInfoProgressFill.style.width = `${Math.min(100, item.current / item.target * 100)}%`;
+    achievementStarField.innerHTML = '';
+    achievementInfoDialog.showModal();
+    if (!newlyCompleted) return;
+    playAchievementStars();
+    acknowledgeAchievement(item.id);
+    row.querySelector('.item-notification-dot')?.remove();
+    row.classList.remove('newly-complete');
+    state.textContent = '已达成';
   }
 
   function dailyTaskDefinitions() {
@@ -420,10 +467,7 @@
         dot.setAttribute('aria-hidden', 'true');
         button.appendChild(dot);
       }
-      button.addEventListener('click', () => {
-        acknowledgeAchievementCategory(category);
-        renderAchievements(category);
-      });
+      button.addEventListener('click', () => renderAchievements(category));
       achievementCategoryList.appendChild(button);
     });
   }
@@ -440,9 +484,12 @@
     achievementList.innerHTML = '';
     all.filter(item => item.category === category).forEach(item => {
       const complete = item.current >= item.target;
-      const row = document.createElement('article');
-      row.className = `achievement-item${complete ? ' complete' : ''}`;
+      const newlyCompleted = complete && !profile.seenAchievements.includes(item.id);
+      const row = document.createElement('button');
+      row.type = 'button';
+      row.className = `achievement-item${complete ? ' complete' : ''}${newlyCompleted ? ' newly-complete' : ''}`;
       row.dataset.category = item.category;
+      row.setAttribute('aria-label', `查看成就：${item.title}`);
       const icon = document.createElement('span');
       icon.className = 'achievement-icon';
       icon.textContent = item.icon;
@@ -450,13 +497,18 @@
       copy.className = 'achievement-copy';
       const title = document.createElement('strong');
       title.textContent = item.title;
-      const detail = document.createElement('small');
-      detail.textContent = `达成条件：${item.condition}｜当前 ${Math.min(item.current, item.target)} / ${item.target}`;
-      copy.append(title, detail);
+      copy.appendChild(title);
       const state = document.createElement('span');
       state.className = 'achievement-state';
-      state.textContent = complete ? '已达成' : '进行中';
+      state.textContent = newlyCompleted ? '新达成' : complete ? '已达成' : '未达成';
       row.append(icon, copy, state);
+      if (newlyCompleted) {
+        const dot = document.createElement('i');
+        dot.className = 'notification-dot item-notification-dot show';
+        dot.setAttribute('aria-hidden', 'true');
+        row.appendChild(dot);
+      }
+      row.addEventListener('click', () => openAchievementInfo(item, row, state));
       achievementList.appendChild(row);
     });
   }
@@ -1454,11 +1506,17 @@
     dailyDialog.showModal();
   });
   document.querySelector('#achievementBack').addEventListener('click', renderAchievementOverview);
+  document.querySelector('#closeAchievementInfo').addEventListener('click', () => achievementInfoDialog.close());
+  document.querySelector('#confirmAchievementInfo').addEventListener('click', () => achievementInfoDialog.close());
   document.querySelector('#closeAchievement').addEventListener('click', () => achievementDialog.close());
   document.querySelector('#closeDaily').addEventListener('click', () => dailyDialog.close());
   achievementDialog.addEventListener('close', () => {
+    if (achievementInfoDialog.open) achievementInfoDialog.close();
     achievementOverview.hidden = false;
     achievementDetail.hidden = true;
+  });
+  achievementInfoDialog.addEventListener('close', () => {
+    achievementStarField.innerHTML = '';
   });
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && activeTool) setTool(null);
