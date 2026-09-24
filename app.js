@@ -15,6 +15,12 @@
     { id: 'blue', name: '湖水蓝', value: '#58bfff' }
   ];
   const TOOL_NAMES = { wild: '万能色', hammer: '敲除', undo: '撤回' };
+  const ACHIEVEMENT_CATEGORY_META = {
+    coral: { title: '红色成就', summary: '收集红色棋子形状；累计完成红色行列消除', icon: '■' },
+    yellow: { title: '黄色成就', summary: '收集黄色棋子形状；累计完成黄色行列消除', icon: '■' },
+    blue: { title: '蓝色成就', summary: '收集蓝色棋子形状；累计完成蓝色行列消除', icon: '■' },
+    progress: { title: '游玩进度', summary: '单局得分挑战；万能色、敲除与撤回使用次数', icon: '★' }
+  };
   const SHAPES = {
     1: [[[0, 0]]],
     2: [
@@ -69,6 +75,11 @@
   const achievementDialog = document.querySelector('#achievementDialog');
   const dailyDialog = document.querySelector('#dailyDialog');
   const achievementList = document.querySelector('#achievementList');
+  const achievementOverview = document.querySelector('#achievementOverview');
+  const achievementDetail = document.querySelector('#achievementDetail');
+  const achievementCategoryList = document.querySelector('#achievementCategoryList');
+  const achievementDetailTitle = document.querySelector('#achievementDetailTitle');
+  const achievementDetailSummary = document.querySelector('#achievementDetailSummary');
   const achievementPercent = document.querySelector('#achievementPercent');
   const achievementProgressFill = document.querySelector('#achievementProgressFill');
   const dailyList = document.querySelector('#dailyList');
@@ -286,6 +297,7 @@
         category: color.id,
         icon: '◆',
         title: `收集${target}种${colorLabels[color.id]}棋子形状`,
+        condition: `放置并收集${target}种不同形状的${colorLabels[color.id]}棋子`,
         current: profile.achievementStats.shapes[color.id].length,
         target
       }));
@@ -294,6 +306,7 @@
         category: color.id,
         icon: '━',
         title: `累计消除${target}行${colorLabels[color.id]}棋子`,
+        condition: `累计完成${target}次${colorLabels[color.id]}整行或整列消除`,
         current: profile.achievementStats.clearedLines[color.id],
         target
       }));
@@ -304,6 +317,7 @@
         category: 'progress',
         icon: mode === 'timed' ? '⌛' : '∞',
         title: `${modeName(mode)}模式单局获得${target}分`,
+        condition: `在${modeName(mode)}模式的单局游戏中达到${target}分`,
         current: profile.achievementStats.bestSingleScores[mode],
         target
       }));
@@ -314,6 +328,7 @@
         category: 'progress',
         icon: '✦',
         title: `使用${TOOL_NAMES[tool]}${target}次`,
+        condition: `累计成功使用${TOOL_NAMES[tool]}道具${target}次`,
         current: profile.achievementStats.toolUses[tool],
         target
       }));
@@ -348,17 +363,61 @@
     document.querySelectorAll('[data-notification="back"]').forEach(dot => dot.classList.toggle('show', unseenAchievements || unseenDaily));
   }
 
-  function renderAchievements(category = activeAchievementCategory) {
-    activeAchievementCategory = category;
-    const all = achievementDefinitions();
+  function updateAchievementCollectionProgress(all = achievementDefinitions()) {
     const completed = all.filter(item => item.current >= item.target).length;
     const percent = Math.round(completed / all.length * 100);
     achievementPercent.textContent = `${percent}%`;
     achievementProgressFill.style.width = `${percent}%`;
-    document.querySelectorAll('[data-achievement-category]').forEach(button => {
-      const selected = button.dataset.achievementCategory === category;
-      button.setAttribute('aria-selected', selected ? 'true' : 'false');
+  }
+
+  function renderAchievementOverview() {
+    const all = achievementDefinitions();
+    updateAchievementCollectionProgress(all);
+    achievementOverview.hidden = false;
+    achievementDetail.hidden = true;
+    achievementCategoryList.innerHTML = '';
+    Object.entries(ACHIEVEMENT_CATEGORY_META).forEach(([category, meta]) => {
+      const items = all.filter(item => item.category === category);
+      const completed = items.filter(item => item.current >= item.target).length;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'achievement-category-card';
+      button.dataset.category = category;
+      button.setAttribute('aria-label', `查看${meta.title}`);
+      const icon = document.createElement('span');
+      icon.className = 'achievement-category-icon';
+      icon.textContent = meta.icon;
+      const copy = document.createElement('span');
+      copy.className = 'achievement-category-copy';
+      const title = document.createElement('strong');
+      title.textContent = meta.title;
+      const summary = document.createElement('small');
+      summary.textContent = meta.summary;
+      copy.append(title, summary);
+      const state = document.createElement('span');
+      state.className = 'achievement-category-state';
+      const stateValue = document.createElement('strong');
+      stateValue.textContent = `${completed}/${items.length}`;
+      const stateLabel = document.createElement('small');
+      stateLabel.textContent = '已收集';
+      state.append(stateValue, stateLabel);
+      const arrow = document.createElement('b');
+      arrow.textContent = '›';
+      button.append(icon, copy, state, arrow);
+      button.addEventListener('click', () => renderAchievements(category));
+      achievementCategoryList.appendChild(button);
     });
+  }
+
+  function renderAchievements(category = activeAchievementCategory) {
+    activeAchievementCategory = category;
+    const all = achievementDefinitions();
+    const meta = ACHIEVEMENT_CATEGORY_META[category];
+    updateAchievementCollectionProgress(all);
+    achievementOverview.hidden = true;
+    achievementDetail.hidden = false;
+    achievementDetailTitle.textContent = meta.title;
+    achievementDetailSummary.textContent = meta.summary;
     achievementList.innerHTML = '';
     all.filter(item => item.category === category).forEach(item => {
       const complete = item.current >= item.target;
@@ -373,7 +432,7 @@
       const title = document.createElement('strong');
       title.textContent = item.title;
       const detail = document.createElement('small');
-      detail.textContent = `${Math.min(item.current, item.target)} / ${item.target}`;
+      detail.textContent = `达成条件：${item.condition}｜当前 ${Math.min(item.current, item.target)} / ${item.target}`;
       copy.append(title, detail);
       const state = document.createElement('span');
       state.className = 'achievement-state';
@@ -1363,13 +1422,10 @@
     avatarInput.value = '';
   });
 
-  document.querySelectorAll('[data-achievement-category]').forEach(button => {
-    button.addEventListener('click', () => renderAchievements(button.dataset.achievementCategory));
-  });
   document.querySelector('#achievementButton').addEventListener('click', () => {
     profile.seenAchievements = [...new Set([...profile.seenAchievements, ...completedAchievementIds()])];
     saveProfileData();
-    renderAchievements();
+    renderAchievementOverview();
     updateNotificationDots();
     achievementDialog.showModal();
   });
@@ -1381,8 +1437,13 @@
     updateNotificationDots();
     dailyDialog.showModal();
   });
+  document.querySelector('#achievementBack').addEventListener('click', renderAchievementOverview);
   document.querySelector('#closeAchievement').addEventListener('click', () => achievementDialog.close());
   document.querySelector('#closeDaily').addEventListener('click', () => dailyDialog.close());
+  achievementDialog.addEventListener('close', () => {
+    achievementOverview.hidden = false;
+    achievementDetail.hidden = true;
+  });
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && activeTool) setTool(null);
   });
