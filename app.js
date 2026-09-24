@@ -1065,6 +1065,9 @@
   });
 
   profile = loadProfile();
+  // Always start a fresh visit in timed mode; mode-specific scores stay intact.
+  profile.mode = 'timed';
+  saveProfileData();
   pendingAvatar = profile.avatar;
   pendingMode = profile.mode;
   createCells();
