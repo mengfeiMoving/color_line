@@ -288,7 +288,7 @@ button { font: inherit; }
 .game-title h1 { margin: 0; font-size: 1.25rem; letter-spacing: -.03em; }
 .game-title p { margin: 4px 0 0; color: var(--muted); font-size: .78rem; }
 .reset-button.icon-only { width: 44px; padding: 0; justify-content: center; }
-.score-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+.score-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(86px, .78fr) minmax(0, 1fr); gap: 12px; margin-bottom: 14px; }
 .score-card { position: relative; min-height: 92px; padding: 15px 17px; overflow: hidden; border: 1px solid var(--line); border-radius: 19px; background: #fff; box-shadow: 0 12px 30px rgba(36,52,84,.08); }
 .score-card span, .score-card small { display: block; color: var(--muted); font-size: .76rem; }
 .score-card strong { display: block; margin-top: 5px; font-size: 1.7rem; line-height: 1; font-variant-numeric: tabular-nums; }
@@ -296,6 +296,10 @@ button { font: inherit; }
 .score-card em { position: absolute; right: 12px; top: 12px; padding: 4px 8px; border-radius: 999px; color: #fff; background: #596cff; font-size: .7rem; font-style: normal; font-weight: 900; animation: comboPop .28s ease; }
 @keyframes comboPop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .current-score { background: linear-gradient(145deg, #f3f5ff, #fff); border-color: #d8ddff; }
+.progress-score { text-align: center; background: linear-gradient(145deg, #f1f7ff, #fff); border-color: #d7e7ff; }
+.progress-score strong { color: #596cff; }
+.progress-score.urgent { background: linear-gradient(145deg, #fff0f2, #fff); border-color: #ffd4d9; }
+.progress-score.urgent strong { color: #ee4f5f; }
 .best-score { background: linear-gradient(145deg, #fff9e7, #fff); border-color: #f1e4b7; }
 .queue-panel, .board-card, .tool-panel { margin-bottom: 14px; border-radius: 22px; }
 .queue-panel { padding: 16px 16px 13px; }
@@ -422,7 +426,7 @@ body { min-height: 100svh; overflow: hidden; }
 }
 .game-title h1 span { color: var(--muted); font-weight: 600; }
 
-.score-row { gap: 8px; margin: 0; }
+.score-row { grid-template-columns: minmax(0, 1fr) minmax(82px, .78fr) minmax(0, 1fr); gap: 8px; margin: 0; }
 .score-card {
   min-height: 54px;
   padding: 8px 13px;
@@ -433,6 +437,7 @@ body { min-height: 100svh; overflow: hidden; }
 .score-card span { font-size: .7rem; }
 .score-card strong { margin-top: 2px; font-size: 1.35rem; }
 .score-card em { top: 8px; right: 9px; padding: 3px 6px; font-size: .62rem; }
+.current-score em { top: auto; right: 7px; bottom: 7px; }
 
 .queue-panel, .board-card, .tool-panel {
   min-width: 0;
