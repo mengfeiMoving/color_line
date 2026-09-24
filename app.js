@@ -9,6 +9,12 @@
   const SCORE_ACHIEVEMENT_TARGETS = [500, 1000, 1500, 2000];
   const TOOL_ACHIEVEMENT_TARGETS = [1, 5, 10, 20];
   const PROFILE_KEY = 'chroma-lines-profile-v1';
+  const placeSound = new Audio('./assets/soap-bubble.wav?v=20260924');
+  const clearSound = new Audio('./assets/liquid-bubble.wav?v=20260924');
+  placeSound.preload = 'auto';
+  clearSound.preload = 'auto';
+  placeSound.volume = 0.55;
+  clearSound.volume = 0.65;
   const COLORS = [
     { id: 'coral', name: '珊瑚红', value: '#ff6577' },
     { id: 'yellow', name: '明亮黄', value: '#ffd056' },
@@ -118,6 +124,15 @@
   let undoSnapshot = null;
   let hasPlayed = false;
   let gameRecorded = false;
+
+  function playGameSound(sound) {
+    try {
+      sound.pause();
+      sound.currentTime = 0;
+      const playback = sound.play();
+      playback?.catch?.(() => {});
+    } catch (_) {}
+  }
 
   function localDateKey(date = new Date()) {
     const year = date.getFullYear();
@@ -1015,6 +1030,7 @@
     queue.push(makeQueuePiece());
     selectedQueueIndex = Math.min(index, queue.length - 1);
     moves++;
+    playGameSound(placeSound);
     renderAll();
     await resolveLines();
     return true;
@@ -1137,6 +1153,7 @@
     clearFlash.classList.remove('show');
     void clearFlash.offsetWidth;
     clearFlash.classList.add('show');
+    playGameSound(clearSound);
     await new Promise(resolve => setTimeout(resolve, 390));
     if (gameEnded) {
       resolving = false;
