@@ -4,12 +4,17 @@
   const TOOL_COST = 100;
   const TIMED_DURATION_SECONDS = 5 * 60;
   const ENDLESS_SCORE_TARGETS = [500, 700, 1000, 1500];
+  const SHAPE_ACHIEVEMENT_TARGETS = [3, 6, 10, 14];
+  const LINE_ACHIEVEMENT_TARGETS = [3, 10, 20, 50];
+  const SCORE_ACHIEVEMENT_TARGETS = [500, 1000, 1500, 2000];
+  const TOOL_ACHIEVEMENT_TARGETS = [1, 5, 10, 20];
   const PROFILE_KEY = 'chroma-lines-profile-v1';
   const COLORS = [
     { id: 'coral', name: '珊瑚红', value: '#ff6577' },
     { id: 'yellow', name: '明亮黄', value: '#ffd056' },
     { id: 'blue', name: '湖水蓝', value: '#58bfff' }
   ];
+  const TOOL_NAMES = { wild: '万能色', hammer: '敲除', undo: '撤回' };
   const SHAPES = {
     1: [[[0, 0]]],
     2: [
@@ -28,6 +33,8 @@
   };
 
   const boardEl = document.querySelector('#board');
+  const homeScreen = document.querySelector('#homeScreen');
+  const gameScreen = document.querySelector('#gameScreen');
   const queueEl = document.querySelector('#queue');
   const scoreEl = document.querySelector('#score');
   const highScoreEl = document.querySelector('#highScore');
@@ -46,6 +53,8 @@
   const queueNote = document.querySelector('#queueNote');
   const headerAvatar = document.querySelector('#headerAvatar');
   const headerAvatarFallback = document.querySelector('#headerAvatarFallback');
+  const homeAvatar = document.querySelector('#homeAvatar');
+  const homeAvatarFallback = document.querySelector('#homeAvatarFallback');
   const profileAvatar = document.querySelector('#profileAvatar');
   const profileAvatarFallback = document.querySelector('#profileAvatarFallback');
   const usernameInput = document.querySelector('#usernameInput');
@@ -57,6 +66,12 @@
   const gameOverMark = document.querySelector('#gameOverMark');
   const gameOverTitle = document.querySelector('#gameOverTitle');
   const gameOverMessage = document.querySelector('#gameOverMessage');
+  const achievementDialog = document.querySelector('#achievementDialog');
+  const dailyDialog = document.querySelector('#dailyDialog');
+  const achievementList = document.querySelector('#achievementList');
+  const achievementPercent = document.querySelector('#achievementPercent');
+  const achievementProgressFill = document.querySelector('#achievementProgressFill');
+  const dailyList = document.querySelector('#dailyList');
 
   let board;
   let queue;
@@ -68,7 +83,7 @@
   let combo;
   let profile;
   let pendingAvatar = '';
-  let pendingMode = 'endless';
+  let activeAchievementCategory = 'coral';
   let activeTool = null;
   let selectedQueueIndex = 0;
   let dragState = null;
@@ -84,13 +99,42 @@
   let hasPlayed = false;
   let gameRecorded = false;
 
+  function localDateKey(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function defaultAchievementStats() {
+    return {
+      shapes: { coral: [], yellow: [], blue: [] },
+      clearedLines: { coral: 0, yellow: 0, blue: 0 },
+      bestSingleScores: { endless: 0, timed: 0 },
+      toolUses: { wild: 0, hammer: 0, undo: 0 }
+    };
+  }
+
+  function defaultDailyState() {
+    return {
+      date: localDateKey(),
+      colorId: randomItem(COLORS).id,
+      toolId: randomItem(Object.keys(TOOL_NAMES)),
+      progress: { games: 0, colorClears: 0, toolUses: 0 },
+      seenCompleted: []
+    };
+  }
+
   function defaultProfile() {
     return {
       username: '玩家',
       avatar: '',
       highScores: { endless: 0, timed: 0 },
       recentScoresByMode: { endless: [], timed: [] },
-      mode: 'endless'
+      mode: 'timed',
+      achievementStats: defaultAchievementStats(),
+      seenAchievements: [],
+      daily: defaultDailyState()
     };
   }
 
@@ -115,12 +159,46 @@
           if (recentScoresByMode[itemMode].length < 5) recentScoresByMode[itemMode].push(item);
         });
       }
+      const baseStats = defaultAchievementStats();
+      const savedStats = saved?.achievementStats || {};
+      const achievementStats = {
+        shapes: Object.fromEntries(COLORS.map(color => [color.id,
+          Array.isArray(savedStats?.shapes?.[color.id]) ? [...new Set(savedStats.shapes[color.id])].slice(0, 30) : []
+        ])),
+        clearedLines: Object.fromEntries(COLORS.map(color => [color.id,
+          Math.max(0, Number(savedStats?.clearedLines?.[color.id] ?? baseStats.clearedLines[color.id]) || 0)
+        ])),
+        bestSingleScores: {
+          endless: Math.max(highScores.endless, Number(savedStats?.bestSingleScores?.endless) || 0),
+          timed: Math.max(highScores.timed, Number(savedStats?.bestSingleScores?.timed) || 0)
+        },
+        toolUses: Object.fromEntries(Object.keys(TOOL_NAMES).map(tool => [tool,
+          Math.max(0, Number(savedStats?.toolUses?.[tool]) || 0)
+        ]))
+      };
+      const savedDaily = saved?.daily;
+      const daily = savedDaily?.date === localDateKey()
+        ? {
+            date: savedDaily.date,
+            colorId: COLORS.some(color => color.id === savedDaily.colorId) ? savedDaily.colorId : randomItem(COLORS).id,
+            toolId: TOOL_NAMES[savedDaily.toolId] ? savedDaily.toolId : randomItem(Object.keys(TOOL_NAMES)),
+            progress: {
+              games: Math.max(0, Number(savedDaily?.progress?.games) || 0),
+              colorClears: Math.max(0, Number(savedDaily?.progress?.colorClears) || 0),
+              toolUses: Math.max(0, Number(savedDaily?.progress?.toolUses) || 0)
+            },
+            seenCompleted: Array.isArray(savedDaily.seenCompleted) ? savedDaily.seenCompleted : []
+          }
+        : defaultDailyState();
       return {
         username: typeof saved?.username === 'string' ? saved.username.slice(0, 12) : '玩家',
         avatar: typeof saved?.avatar === 'string' ? saved.avatar : '',
         mode,
         highScores,
-        recentScoresByMode
+        recentScoresByMode,
+        achievementStats,
+        seenAchievements: Array.isArray(saved?.seenAchievements) ? saved.seenAchievements : [],
+        daily
       };
     } catch (_) {
       return defaultProfile();
@@ -148,20 +226,18 @@
 
   function updateProfileUI() {
     highScoreEl.textContent = highScoreFor();
-    const profileMode = pendingMode;
+    const profileMode = profile.mode;
     profileHighScore.textContent = highScoreFor(profileMode);
     profileScoreMode.textContent = `${modeName(profileMode)}模式最高分`;
     recentTitle.textContent = `${modeName(profileMode)}模式最近五局`;
     modeLabel.textContent = `丨${modeName(profile.mode)}模式`;
     queueNote.textContent = '两种模式都可从七枚待选棋子中任选一枚。';
     setAvatarElement(headerAvatar, headerAvatarFallback, profile.avatar);
+    setAvatarElement(homeAvatar, homeAvatarFallback, profile.avatar);
     setAvatarElement(profileAvatar, profileAvatarFallback, pendingAvatar || profile.avatar);
     usernameInput.value = profile.username;
-    document.querySelectorAll('[data-mode]').forEach(button => {
-      const checked = button.dataset.mode === pendingMode;
-      button.setAttribute('aria-checked', checked ? 'true' : 'false');
-    });
     renderRecentScores(profileMode);
+    updateNotificationDots();
   }
 
   function modeName(mode) {
@@ -191,15 +267,200 @@
     });
   }
 
+  function ensureDailyState() {
+    if (profile.daily?.date === localDateKey()) return;
+    profile.daily = defaultDailyState();
+    saveProfileData();
+  }
+
+  function shapeKey(shape) {
+    return shape.map(([r, c]) => `${r},${c}`).sort().join('|');
+  }
+
+  function achievementDefinitions() {
+    const colorLabels = { coral: '红色', yellow: '黄色', blue: '蓝色' };
+    const definitions = [];
+    COLORS.forEach(color => {
+      SHAPE_ACHIEVEMENT_TARGETS.forEach(target => definitions.push({
+        id: `${color.id}-shapes-${target}`,
+        category: color.id,
+        icon: '◆',
+        title: `收集${target}种${colorLabels[color.id]}棋子形状`,
+        current: profile.achievementStats.shapes[color.id].length,
+        target
+      }));
+      LINE_ACHIEVEMENT_TARGETS.forEach(target => definitions.push({
+        id: `${color.id}-lines-${target}`,
+        category: color.id,
+        icon: '━',
+        title: `累计消除${target}行${colorLabels[color.id]}棋子`,
+        current: profile.achievementStats.clearedLines[color.id],
+        target
+      }));
+    });
+    ['endless', 'timed'].forEach(mode => {
+      SCORE_ACHIEVEMENT_TARGETS.forEach(target => definitions.push({
+        id: `${mode}-score-${target}`,
+        category: 'progress',
+        icon: mode === 'timed' ? '⌛' : '∞',
+        title: `${modeName(mode)}模式单局获得${target}分`,
+        current: profile.achievementStats.bestSingleScores[mode],
+        target
+      }));
+    });
+    Object.keys(TOOL_NAMES).forEach(tool => {
+      TOOL_ACHIEVEMENT_TARGETS.forEach(target => definitions.push({
+        id: `${tool}-uses-${target}`,
+        category: 'progress',
+        icon: '✦',
+        title: `使用${TOOL_NAMES[tool]}${target}次`,
+        current: profile.achievementStats.toolUses[tool],
+        target
+      }));
+    });
+    return definitions;
+  }
+
+  function completedAchievementIds() {
+    return achievementDefinitions().filter(item => item.current >= item.target).map(item => item.id);
+  }
+
+  function dailyTaskDefinitions() {
+    ensureDailyState();
+    const color = COLORS.find(item => item.id === profile.daily.colorId) || COLORS[0];
+    const progress = profile.daily.progress;
+    return [
+      { id: 'game', icon: '▶', title: '完成一局游戏', current: progress.games, target: 1 },
+      { id: 'color', icon: '━', title: `完成5次${color.name}行列消除`, current: progress.colorClears, target: 5 },
+      { id: 'tool', icon: '✦', title: `使用${TOOL_NAMES[profile.daily.toolId]}1次`, current: progress.toolUses, target: 1 }
+    ];
+  }
+
+  function updateNotificationDots() {
+    if (!profile) return;
+    ensureDailyState();
+    const completedAchievements = completedAchievementIds();
+    const unseenAchievements = completedAchievements.some(id => !profile.seenAchievements.includes(id));
+    const completedDaily = dailyTaskDefinitions().filter(task => task.current >= task.target).map(task => task.id);
+    const unseenDaily = completedDaily.some(id => !profile.daily.seenCompleted.includes(id));
+    document.querySelectorAll('[data-notification="achievement"]').forEach(dot => dot.classList.toggle('show', unseenAchievements));
+    document.querySelectorAll('[data-notification="daily"]').forEach(dot => dot.classList.toggle('show', unseenDaily));
+    document.querySelectorAll('[data-notification="back"]').forEach(dot => dot.classList.toggle('show', unseenAchievements || unseenDaily));
+  }
+
+  function renderAchievements(category = activeAchievementCategory) {
+    activeAchievementCategory = category;
+    const all = achievementDefinitions();
+    const completed = all.filter(item => item.current >= item.target).length;
+    const percent = Math.round(completed / all.length * 100);
+    achievementPercent.textContent = `${percent}%`;
+    achievementProgressFill.style.width = `${percent}%`;
+    document.querySelectorAll('[data-achievement-category]').forEach(button => {
+      const selected = button.dataset.achievementCategory === category;
+      button.setAttribute('aria-selected', selected ? 'true' : 'false');
+    });
+    achievementList.innerHTML = '';
+    all.filter(item => item.category === category).forEach(item => {
+      const complete = item.current >= item.target;
+      const row = document.createElement('article');
+      row.className = `achievement-item${complete ? ' complete' : ''}`;
+      row.dataset.category = item.category;
+      const icon = document.createElement('span');
+      icon.className = 'achievement-icon';
+      icon.textContent = item.icon;
+      const copy = document.createElement('div');
+      copy.className = 'achievement-copy';
+      const title = document.createElement('strong');
+      title.textContent = item.title;
+      const detail = document.createElement('small');
+      detail.textContent = `${Math.min(item.current, item.target)} / ${item.target}`;
+      copy.append(title, detail);
+      const state = document.createElement('span');
+      state.className = 'achievement-state';
+      state.textContent = complete ? '已达成' : '进行中';
+      row.append(icon, copy, state);
+      achievementList.appendChild(row);
+    });
+  }
+
+  function renderDailyTasks() {
+    dailyList.innerHTML = '';
+    dailyTaskDefinitions().forEach(task => {
+      const complete = task.current >= task.target;
+      const row = document.createElement('article');
+      row.className = `daily-item${complete ? ' complete' : ''}`;
+      const icon = document.createElement('span');
+      icon.className = 'daily-icon';
+      icon.textContent = task.icon;
+      const copy = document.createElement('div');
+      copy.className = 'daily-copy';
+      const head = document.createElement('div');
+      head.className = 'daily-copy-head';
+      const title = document.createElement('strong');
+      title.textContent = task.title;
+      const state = document.createElement('span');
+      state.className = 'daily-state';
+      state.textContent = complete ? '已完成' : `${Math.min(task.current, task.target)}/${task.target}`;
+      head.append(title, state);
+      const track = document.createElement('div');
+      track.className = 'daily-progress';
+      const fill = document.createElement('i');
+      fill.style.width = `${Math.min(100, task.current / task.target * 100)}%`;
+      track.appendChild(fill);
+      copy.append(head, track);
+      row.append(icon, copy);
+      dailyList.appendChild(row);
+    });
+  }
+
+  function recordPlacedShape(piece) {
+    const collection = profile.achievementStats.shapes[piece.color.id];
+    const key = shapeKey(piece.shape);
+    if (!collection.includes(key)) collection.push(key);
+    saveProfileData();
+    updateNotificationDots();
+  }
+
+  function recordScoreProgress() {
+    profile.achievementStats.bestSingleScores[profile.mode] = Math.max(
+      profile.achievementStats.bestSingleScores[profile.mode], score
+    );
+    saveProfileData();
+    updateNotificationDots();
+  }
+
+  function recordLineProgress(clearedLines) {
+    ensureDailyState();
+    clearedLines.forEach(line => {
+      if (!profile.achievementStats.clearedLines[line.colorId] && profile.achievementStats.clearedLines[line.colorId] !== 0) return;
+      profile.achievementStats.clearedLines[line.colorId] += 1;
+      if (line.colorId === profile.daily.colorId) profile.daily.progress.colorClears += 1;
+    });
+    saveProfileData();
+    updateNotificationDots();
+  }
+
+  function recordToolProgress(tool) {
+    ensureDailyState();
+    profile.achievementStats.toolUses[tool] += 1;
+    if (tool === profile.daily.toolId) profile.daily.progress.toolUses += 1;
+    saveProfileData();
+    updateNotificationDots();
+  }
+
   function recordCurrentGame() {
     if (!hasPlayed || gameRecorded) return;
+    ensureDailyState();
     const mode = profile.mode;
     if (!Array.isArray(profile.recentScoresByMode[mode])) profile.recentScoresByMode[mode] = [];
     profile.recentScoresByMode[mode].unshift({ score, mode, at: Date.now() });
     profile.recentScoresByMode[mode] = profile.recentScoresByMode[mode].slice(0, 5);
     profile.highScores[mode] = Math.max(highScoreFor(mode), score);
+    profile.achievementStats.bestSingleScores[mode] = Math.max(profile.achievementStats.bestSingleScores[mode], score);
+    profile.daily.progress.games += 1;
     gameRecorded = true;
     saveProfileData();
+    updateNotificationDots();
   }
 
   function randomItem(items) { return items[Math.floor(Math.random() * items.length)]; }
@@ -260,7 +521,7 @@
     activeTool = null;
   }
 
-  function initGame() {
+  function initGame(announce = true) {
     stopTimer();
     board = freshBoard();
     queue = Array.from({ length: QUEUE_SIZE }, makeQueuePiece);
@@ -281,7 +542,7 @@
     renderAll();
     updateProfileUI();
     startGameTimer();
-    showToast('新的一局开始了');
+    if (announce) showToast('新的一局开始了');
   }
 
   function stopTimer() {
@@ -618,6 +879,7 @@
       board[pos.r][pos.c] = data;
       placed.cells.push({ ...pos, wild: false });
     });
+    recordPlacedShape(current);
     pieces.set(id, placed);
     queue.splice(index, 1);
     queue.push(makeQueuePiece());
@@ -772,6 +1034,8 @@
     const gained = keys.size * 10 * multiplier;
     const scoreGroups = clearScoreGroups(rows, cols, multiplier);
     score += gained;
+    recordLineProgress([...rows, ...cols]);
+    recordScoreProgress();
     if (score > highScoreFor()) {
       profile.highScores[profile.mode] = score;
       saveProfileData();
@@ -794,6 +1058,7 @@
     const part = piece?.cells.find(x => x.r === r && x.c === c);
     if (part) part.wild = true;
     if (!chargeTool()) return true;
+    recordToolProgress('wild');
     const cleared = await resolveLines();
     if (!cleared) showToast('万能色已生效，−100分');
     return true;
@@ -813,6 +1078,7 @@
     }
     combo = 0;
     if (!chargeTool()) return true;
+    recordToolProgress('hammer');
     showToast('已敲除一格，−100分');
     return true;
   }
@@ -827,6 +1093,7 @@
     restoreUndoSnapshot(snapshot);
     hasPlayed = true;
     if (!chargeTool()) return true;
+    recordToolProgress('undo');
     renderAll();
     showToast('已撤回上一步，−100分');
     return true;
@@ -1005,72 +1272,126 @@
   gameOverDialog.addEventListener('close', () => {
     if (gameOverDialog.returnValue === 'restart') initGame();
   });
-  document.querySelector('#profileButton').addEventListener('click', () => {
+
+  function openProfile() {
     pendingAvatar = profile.avatar;
-    pendingMode = profile.mode;
     updateProfileUI();
     profileDialog.showModal();
+  }
+
+  function showHome(recordGame = true) {
+    if (recordGame) recordCurrentGame();
+    stopTimer();
+    if (resetDialog.open) resetDialog.close('cancel');
+    if (gameOverDialog.open) gameOverDialog.close('cancel');
+    gameScreen.hidden = true;
+    homeScreen.hidden = false;
+    updateProfileUI();
+  }
+
+  function startMode(mode) {
+    profile.mode = mode === 'endless' ? 'endless' : 'timed';
+    saveProfileData();
+    homeScreen.hidden = true;
+    gameScreen.hidden = false;
+    initGame();
+  }
+
+  async function createAvatarDataUrl(file) {
+    if (!file.type.startsWith('image/')) throw new Error('请选择图片文件');
+    if (file.size > 10 * 1024 * 1024) throw new Error('头像原图请控制在10MB以内');
+    const objectUrl = URL.createObjectURL(file);
+    try {
+      const sourceImage = new Image();
+      sourceImage.decoding = 'async';
+      sourceImage.src = objectUrl;
+      await new Promise((resolve, reject) => {
+        sourceImage.onload = resolve;
+        sourceImage.onerror = () => reject(new Error('无法读取这张图片，请换一张重试'));
+      });
+      if (!sourceImage.naturalWidth || !sourceImage.naturalHeight) throw new Error('图片尺寸无效，请换一张重试');
+      const sourceSize = Math.min(sourceImage.naturalWidth, sourceImage.naturalHeight);
+      const sourceX = (sourceImage.naturalWidth - sourceSize) / 2;
+      const sourceY = (sourceImage.naturalHeight - sourceSize) / 2;
+      const outputSize = Math.min(512, sourceSize);
+      const canvas = document.createElement('canvas');
+      canvas.width = outputSize;
+      canvas.height = outputSize;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('当前浏览器无法处理头像图片');
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, outputSize, outputSize);
+      context.drawImage(sourceImage, sourceX, sourceY, sourceSize, sourceSize, 0, 0, outputSize, outputSize);
+      return canvas.toDataURL('image/jpeg', .86);
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }
+
+  document.querySelector('#profileButton').addEventListener('click', openProfile);
+  document.querySelector('#homeProfileButton').addEventListener('click', openProfile);
+  document.querySelector('#backHomeButton').addEventListener('click', () => showHome(true));
+  document.querySelectorAll('[data-start-mode]').forEach(button => {
+    button.addEventListener('click', () => startMode(button.dataset.startMode));
   });
   document.querySelector('#closeProfile').addEventListener('click', () => profileDialog.close());
-  document.querySelectorAll('[data-mode]').forEach(button => {
-    button.addEventListener('click', () => {
-      pendingMode = button.dataset.mode;
-      document.querySelectorAll('[data-mode]').forEach(option => {
-        option.setAttribute('aria-checked', option.dataset.mode === pendingMode ? 'true' : 'false');
-      });
-      profileHighScore.textContent = highScoreFor(pendingMode);
-      profileScoreMode.textContent = `${modeName(pendingMode)}模式最高分`;
-      recentTitle.textContent = `${modeName(pendingMode)}模式最近五局`;
-      renderRecentScores(pendingMode);
-    });
-  });
-  avatarInput.addEventListener('change', () => {
+  avatarInput.addEventListener('change', async () => {
     const file = avatarInput.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) return showToast('请选择图片文件');
-    if (file.size > 1024 * 1024) {
-      avatarInput.value = '';
-      return showToast('头像图片请控制在1MB以内');
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      pendingAvatar = String(reader.result || '');
+    try {
+      pendingAvatar = await createAvatarDataUrl(file);
       setAvatarElement(profileAvatar, profileAvatarFallback, pendingAvatar);
-    };
-    reader.readAsDataURL(file);
+      showToast('头像预览已更新，记得保存');
+    } catch (error) {
+      showToast(error.message || '头像处理失败，请重试');
+    } finally {
+      avatarInput.value = '';
+    }
   });
   document.querySelector('#saveProfile').addEventListener('click', () => {
     const nextName = usernameInput.value.trim().slice(0, 12) || '玩家';
-    const modeChanged = pendingMode !== profile.mode;
-    if (modeChanged) recordCurrentGame();
     profile.username = nextName;
     profile.avatar = pendingAvatar;
-    profile.mode = pendingMode;
     saveProfileData();
     profileDialog.close();
-    if (modeChanged) initGame();
-    else {
-      updateProfileUI();
-      renderAll();
-      showToast('个人设置已保存');
-    }
+    updateProfileUI();
+    renderAll();
+    showToast('个人设置已保存');
   });
   profileDialog.addEventListener('close', () => {
     pendingAvatar = profile.avatar;
-    pendingMode = profile.mode;
     avatarInput.value = '';
   });
+
+  document.querySelectorAll('[data-achievement-category]').forEach(button => {
+    button.addEventListener('click', () => renderAchievements(button.dataset.achievementCategory));
+  });
+  document.querySelector('#achievementButton').addEventListener('click', () => {
+    profile.seenAchievements = [...new Set([...profile.seenAchievements, ...completedAchievementIds()])];
+    saveProfileData();
+    renderAchievements();
+    updateNotificationDots();
+    achievementDialog.showModal();
+  });
+  document.querySelector('#dailyButton').addEventListener('click', () => {
+    const completed = dailyTaskDefinitions().filter(task => task.current >= task.target).map(task => task.id);
+    profile.daily.seenCompleted = [...new Set([...profile.daily.seenCompleted, ...completed])];
+    saveProfileData();
+    renderDailyTasks();
+    updateNotificationDots();
+    dailyDialog.showModal();
+  });
+  document.querySelector('#closeAchievement').addEventListener('click', () => achievementDialog.close());
+  document.querySelector('#closeDaily').addEventListener('click', () => dailyDialog.close());
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && activeTool) setTool(null);
   });
 
   profile = loadProfile();
-  // Always start a fresh visit in timed mode; mode-specific scores stay intact.
-  profile.mode = 'timed';
-  saveProfileData();
+  ensureDailyState();
   pendingAvatar = profile.avatar;
-  pendingMode = profile.mode;
   createCells();
-  initGame();
+  initGame(false);
+  showHome(false);
   registerWebMCP();
 })();
