@@ -479,9 +479,12 @@
     const target = document.elementFromPoint(x, y)?.closest('.cell');
     if (!target) return null;
     const bounds = shapeBounds(piece.shape);
+    // The drag preview is centered on the pointer. For an even-sized shape,
+    // use the lower/right center cell as the pointer cell so the placed piece
+    // does not drift one grid space toward the bottom-right.
     return [
-      Number(target.dataset.row) - Math.floor((bounds.rows - 1) / 2),
-      Number(target.dataset.col) - Math.floor((bounds.cols - 1) / 2)
+      Number(target.dataset.row) - Math.floor(bounds.rows / 2),
+      Number(target.dataset.col) - Math.floor(bounds.cols / 2)
     ];
   }
 
