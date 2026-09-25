@@ -165,18 +165,6 @@ button { font: inherit; }
   transform: translateY(-2px);
   box-shadow: 0 0 0 3px rgba(89,108,255,.10), 0 8px 20px rgba(43,63,99,.10);
 }
-.queue-card.selected::before {
-  content: "已选";
-  position: absolute;
-  right: 6px;
-  top: 6px;
-  border-radius: 7px;
-  padding: 2px 5px;
-  color: white;
-  background: #596cff;
-  font-size: .7rem;
-  font-weight: 900;
-}
 .queue-card::after { color: #8793aa; font-size: .72rem; }
 .queue-card.current { border-color: #e1e7f0; background: #f7f9fc; transform: none; box-shadow: none; }
 .queue-card.current::before { content: none; }
@@ -333,15 +321,16 @@ button { font: inherit; }
 .avatar-editor { position: relative; width: 78px; height: 78px; overflow: hidden; border-radius: 22px; color: white; background: linear-gradient(145deg, #6c7cff, #4e5ee7); cursor: pointer; }
 .avatar-editor > span { display: grid; width: 100%; height: 100%; place-items: center; font-size: 1.6rem; font-weight: 900; }
 .avatar-editor b { position: absolute; inset: auto 0 0; padding: 4px; color: #fff; background: rgba(22,30,50,.65); text-align: center; font-size: .66rem; }
-.name-field span { display: block; margin-bottom: 7px; color: var(--muted); font-size: .74rem; }
+.name-field { min-width: 0; }
+.name-field-head { min-height: 24px; margin-bottom: 7px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.name-field-head > label { flex: 0 0 auto; color: var(--muted); font-size: .74rem; }
 .name-field input { width: 100%; height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; color: var(--text); background: #f8fafc; font: inherit; outline: none; }
 .name-field input:focus { border-color: #596cff; box-shadow: 0 0 0 3px rgba(89,108,255,.10); }
-.uid-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; padding: 11px 12px; border-radius: 13px; background: #f6f8fc; }
-.uid-row div { min-width: 0; }
-.uid-row div > span { display: block; margin-bottom: 4px; color: var(--muted); font-size: .67rem; }
-.uid-row strong { display: block; color: #44516a; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .68rem; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
-.uid-row button { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 5px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; color: #53617a; background: #fff; font-size: .68rem; font-weight: 800; cursor: pointer; }
-.uid-row svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.uid-inline { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 5px; color: var(--muted); }
+.uid-inline > span { font-size: .62rem; }
+.uid-inline strong { color: #44516a; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .66rem; font-weight: 800; letter-spacing: .02em; white-space: nowrap; }
+.uid-inline button { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; padding: 4px 0 4px 6px; border: 0; color: #596cff; background: transparent; font-size: .64rem; font-weight: 850; cursor: pointer; }
+.uid-inline svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .profile-mode-section { margin-top: 0; margin-bottom: 14px; }
 .profile-score { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-radius: 15px; color: #fff; background: linear-gradient(120deg, #596cff, #7c66ee); }
 .profile-score span { font-size: .8rem; }
@@ -475,11 +464,11 @@ body { min-height: 100svh; overflow: hidden; }
 .queue-card::after { top: 3px; left: 5px; font-size: .55rem; }
 .queue-card.selected,
 .queue-card.sequence-current {
-  border: 0;
+  border: 2px solid #7c66ee;
   background: #f1f3ff;
-  box-shadow: none;
+  box-shadow: 0 0 0 2px rgba(124,102,238,.12);
 }
-.queue-card.selected::before,
+.queue-card.selected::before { content: none; display: none; }
 .queue-card.sequence-current::before { right: 3px; top: 3px; font-size: .53rem; }
 .mini-piece { transform: scale(.68); }
 
