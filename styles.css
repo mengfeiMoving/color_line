@@ -251,6 +251,7 @@ button { font: inherit; }
 .reset-dialog p { color: #697791; }
 .reset-dialog .secondary { color: #26324b; background: #edf1f7; }
 .reset-dialog .primary { background: #596cff; }
+.reset-dialog .danger { background: #ef4f5f; }
 
 @media (max-width: 840px) {
   .game-layout { grid-template-columns: 1fr; }
