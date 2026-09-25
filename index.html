@@ -7,7 +7,7 @@
   <meta name="description" content="同色整行或整列消除玩法测试版" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Crect x='6' y='6' width='8' height='8' rx='2' fill='%23ff6b7a'/%3E%3Crect x='18' y='6' width='8' height='8' rx='2' fill='%235ac8fa'/%3E%3Crect x='6' y='18' width='8' height='8' rx='2' fill='%23ffd65a'/%3E%3Crect x='18' y='18' width='8' height='8' rx='2' fill='%23a77bff'/%3E%3C/svg%3E" />
   <title>同色成线 · 玩法测试</title>
-  <link rel="stylesheet" href="./styles.css?v=20260925-uid-drag-only" />
+  <link rel="stylesheet" href="./styles.css?v=20260925-exit-confirmation" />
 </head>
 <body>
   <main class="home-screen" id="homeScreen">
@@ -133,6 +133,17 @@
       </div>
     </form>
   </dialog>
+  <dialog class="reset-dialog exit-dialog" id="exitDialog">
+    <form method="dialog">
+      <span class="dialog-mark">↩</span>
+      <h2>结束本局？</h2>
+      <p>返回首页将结束本局，是否确认</p>
+      <div>
+        <button value="home" class="danger">返回首页</button>
+        <button value="cancel" class="primary">继续本局</button>
+      </div>
+    </form>
+  </dialog>
   <dialog class="reset-dialog game-over-dialog" id="gameOverDialog">
     <form method="dialog">
       <span class="dialog-mark" id="gameOverMark">0</span>
@@ -243,6 +254,6 @@
       <div class="daily-list" id="dailyList"></div>
     </div>
   </dialog>
-  <script src="./app.js?v=20260925-uid-drag-only"></script>
+  <script src="./app.js?v=20260925-exit-confirmation"></script>
 </body>
 </html>
