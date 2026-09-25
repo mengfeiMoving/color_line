@@ -236,7 +236,7 @@
           }
         : defaultDailyState();
       return {
-        uid: typeof saved?.uid === 'string' && saved.uid.trim() ? saved.uid : createUid(),
+        uid: typeof saved?.uid === 'string' && /^\d{12}$/.test(saved.uid) ? saved.uid : createUid(),
         username: typeof saved?.username === 'string' ? saved.username.slice(0, 12) : '玩家',
         avatar: typeof saved?.avatar === 'string' ? saved.avatar : '',
         mode,
@@ -256,11 +256,10 @@
   }
 
   function createUid() {
-    if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
-    const randomPart = Array.from(globalThis.crypto?.getRandomValues?.(new Uint32Array(3)) || [Math.random() * 1e9, Math.random() * 1e9, Math.random() * 1e9])
-      .map(value => Math.floor(value).toString(36).padStart(6, '0'))
-      .join('');
-    return `cl-${Date.now().toString(36)}-${randomPart}`;
+    const values = new Uint8Array(12);
+    if (globalThis.crypto?.getRandomValues) globalThis.crypto.getRandomValues(values);
+    else values.forEach((_, index) => { values[index] = Math.floor(Math.random() * 256); });
+    return Array.from(values, (value, index) => String(index === 0 ? 1 + value % 9 : value % 10)).join('');
   }
 
   function saveProfileData() {
@@ -794,8 +793,6 @@
         cell.setAttribute('role', 'gridcell');
         cell.setAttribute('aria-label', `第${r + 1}行第${c + 1}列，空格`);
         cell.addEventListener('click', () => handleCellClick(r, c));
-        cell.addEventListener('mouseenter', () => { hoverAnchor = [r, c]; renderBoard(); });
-        cell.addEventListener('mouseleave', () => { hoverAnchor = null; renderBoard(); });
         boardEl.appendChild(cell);
       }
     }
@@ -1052,7 +1049,6 @@
     if (resolving || gameEnded) return;
     if (activeTool === 'wild') return applyWild(r, c);
     if (activeTool === 'hammer') return applyHammer(r, c);
-    placeSelected(selectedQueueIndex, r, c);
   }
 
   async function placeSelected(index, r, c) {
