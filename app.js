@@ -4,7 +4,7 @@
   const TOOL_COST = 100;
   const TIMED_DURATION_SECONDS = 5 * 60;
   const ENDLESS_SCORE_TARGETS = [500, 700, 1000, 1500];
-  const SHAPE_ACHIEVEMENT_TARGETS = [3, 6, 10, 14];
+  const SHAPE_ACHIEVEMENT_TARGETS = [3, 6, 10, 14, 22];
   const LINE_ACHIEVEMENT_TARGETS = [3, 10, 20, 50];
   const SCORE_ACHIEVEMENT_TARGETS = [500, 1000, 1500, 2000];
   const TOOL_ACHIEVEMENT_TARGETS = [1, 5, 10, 20];
@@ -39,8 +39,12 @@
     ],
     4: [
       [[0, 0], [0, 1], [1, 0], [1, 1]],
-      [[0, 0], [1, 0], [2, 0], [2, 1]], [[0, 1], [1, 1], [2, 0], [2, 1]],
-      [[0, 0], [0, 1], [0, 2], [1, 1]], [[0, 1], [1, 0], [1, 1], [2, 1]]
+      [[0, 0], [0, 1], [0, 2], [1, 1]], [[0, 1], [1, 0], [1, 1], [2, 1]],
+      [[0, 1], [1, 0], [1, 1], [1, 2]], [[0, 0], [1, 0], [1, 1], [2, 0]],
+      [[0, 0], [1, 0], [2, 0], [2, 1]], [[0, 0], [0, 1], [1, 1], [2, 1]],
+      [[0, 0], [0, 1], [1, 0], [2, 0]], [[0, 1], [1, 1], [2, 0], [2, 1]],
+      [[0, 0], [0, 1], [0, 2], [1, 0]], [[0, 0], [0, 1], [0, 2], [1, 2]],
+      [[0, 0], [1, 0], [1, 1], [1, 2]], [[0, 2], [1, 0], [1, 1], [1, 2]]
     ]
   };
 
@@ -73,6 +77,10 @@
   const avatarInput = document.querySelector('#avatarInput');
   const profileHighScore = document.querySelector('#profileHighScore');
   const profileScoreMode = document.querySelector('#profileScoreMode');
+  const profileUid = document.querySelector('#profileUid');
+  const profileRulesPanel = document.querySelector('#profileRulesPanel');
+  const profileRulesSummary = document.querySelector('#profileRulesSummary');
+  const profileRulesList = document.querySelector('#profileRulesList');
   const recentTitle = document.querySelector('#recentTitle');
   const recentList = document.querySelector('#recentList');
   const gameOverMark = document.querySelector('#gameOverMark');
@@ -109,6 +117,7 @@
   let combo;
   let profile;
   let pendingAvatar = '';
+  let profileViewMode = 'timed';
   let activeAchievementCategory = 'coral';
   let activeTool = null;
   let selectedQueueIndex = 0;
@@ -162,6 +171,7 @@
 
   function defaultProfile() {
     return {
+      uid: createUid(),
       username: '玩家',
       avatar: '',
       highScores: { endless: 0, timed: 0 },
@@ -176,7 +186,7 @@
   function loadProfile() {
     try {
       const saved = JSON.parse(localStorage.getItem(PROFILE_KEY));
-      const legacyMode = saved?.difficulty === 'hard' ? 'timed' : 'endless';
+      const legacyMode = saved?.difficulty === 'hard' ? 'timed' : saved?.difficulty ? 'endless' : 'timed';
       const mode = saved?.mode === 'timed' || saved?.mode === 'endless' ? saved.mode : legacyMode;
       const highScores = {
         endless: Math.max(0, Number(saved?.highScores?.endless ?? saved?.highScores?.normal) || 0),
@@ -226,6 +236,7 @@
           }
         : defaultDailyState();
       return {
+        uid: typeof saved?.uid === 'string' && saved.uid.trim() ? saved.uid : createUid(),
         username: typeof saved?.username === 'string' ? saved.username.slice(0, 12) : '玩家',
         avatar: typeof saved?.avatar === 'string' ? saved.avatar : '',
         mode,
@@ -242,6 +253,14 @@
 
   function highScoreFor(mode = profile.mode) {
     return profile.highScores?.[mode] || 0;
+  }
+
+  function createUid() {
+    if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+    const randomPart = Array.from(globalThis.crypto?.getRandomValues?.(new Uint32Array(3)) || [Math.random() * 1e9, Math.random() * 1e9, Math.random() * 1e9])
+      .map(value => Math.floor(value).toString(36).padStart(6, '0'))
+      .join('');
+    return `cl-${Date.now().toString(36)}-${randomPart}`;
   }
 
   function saveProfileData() {
@@ -261,22 +280,52 @@
 
   function updateProfileUI() {
     highScoreEl.textContent = highScoreFor();
-    const profileMode = profile.mode;
-    profileHighScore.textContent = highScoreFor(profileMode);
-    profileScoreMode.textContent = `${modeName(profileMode)}模式最高分`;
-    recentTitle.textContent = `${modeName(profileMode)}模式最近五局`;
     modeLabel.textContent = `丨${modeName(profile.mode)}模式`;
     queueNote.textContent = '两种模式都可从七枚待选棋子中任选一枚。';
     setAvatarElement(headerAvatar, headerAvatarFallback, profile.avatar);
     setAvatarElement(homeAvatar, homeAvatarFallback, profile.avatar);
     setAvatarElement(profileAvatar, profileAvatarFallback, pendingAvatar || profile.avatar);
     usernameInput.value = profile.username;
-    renderRecentScores(profileMode);
+    profileUid.textContent = profile.uid;
+    renderProfileMode(profileViewMode);
     updateNotificationDots();
   }
 
   function modeName(mode) {
     return mode === 'timed' ? '限时' : '无尽';
+  }
+
+  function renderProfileMode(mode) {
+    profileViewMode = mode === 'endless' ? 'endless' : 'timed';
+    document.querySelectorAll('[data-profile-mode]').forEach(button => {
+      button.setAttribute('aria-checked', String(button.dataset.profileMode === profileViewMode));
+    });
+    profileHighScore.textContent = highScoreFor(profileViewMode);
+    profileScoreMode.textContent = `${modeName(profileViewMode)}模式历史最高分`;
+    recentTitle.textContent = `${modeName(profileViewMode)}模式最近五局`;
+    renderRecentScores(profileViewMode);
+    renderProfileRules(profileViewMode);
+  }
+
+  function renderProfileRules(mode) {
+    const modeRule = mode === 'timed'
+      ? '限时模式每局5分钟，倒计时归零时结算本局得分。'
+      : '无尽模式不限时，目标分数依次为500、700、1000和1500分。';
+    const rules = [
+      modeRule,
+      '将棋子拖入7×7棋盘；同一行或同一列被同色棋子填满后即可消除。',
+      '待选区同时提供7枚棋子，可任选一枚放置；棋子共22种形状，不生成一字4格与S/Z形。',
+      '连续落子均触发消除时，连消倍率依次提升为×2、×4、×8。',
+      '万能色、敲除和撤回可无限使用，每次成功使用扣除100分；积分不足以支付时本局结束。',
+      `撤回可恢复上一步操作前的棋盘与待选区${mode === 'timed' ? '，但不会恢复已经流逝的时间' : ''}。`
+    ];
+    profileRulesSummary.textContent = `查看${modeName(mode)}模式游戏规则`;
+    profileRulesList.innerHTML = '';
+    rules.forEach(rule => {
+      const item = document.createElement('li');
+      item.textContent = rule;
+      profileRulesList.appendChild(item);
+    });
   }
 
   function renderRecentScores(mode = profile.mode) {
@@ -1422,6 +1471,8 @@
 
   function openProfile() {
     pendingAvatar = profile.avatar;
+    profileViewMode = profile.mode;
+    profileRulesPanel.open = false;
     updateProfileUI();
     profileDialog.showModal();
   }
@@ -1482,6 +1533,30 @@
     button.addEventListener('click', () => startMode(button.dataset.startMode));
   });
   document.querySelector('#closeProfile').addEventListener('click', () => profileDialog.close());
+  document.querySelectorAll('[data-profile-mode]').forEach(button => {
+    button.addEventListener('click', () => renderProfileMode(button.dataset.profileMode));
+  });
+  document.querySelector('#copyUid').addEventListener('click', async () => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(profile.uid);
+      } else {
+        const copyField = document.createElement('textarea');
+        copyField.value = profile.uid;
+        copyField.setAttribute('readonly', '');
+        copyField.style.position = 'fixed';
+        copyField.style.opacity = '0';
+        document.body.appendChild(copyField);
+        copyField.select();
+        const copied = document.execCommand('copy');
+        copyField.remove();
+        if (!copied) throw new Error('copy failed');
+      }
+      showToast('UID已复制');
+    } catch (_) {
+      showToast('复制失败，请长按UID手动复制');
+    }
+  });
   avatarInput.addEventListener('change', async () => {
     const file = avatarInput.files?.[0];
     if (!file) return;
@@ -1540,6 +1615,7 @@
   });
 
   profile = loadProfile();
+  saveProfileData();
   ensureDailyState();
   pendingAvatar = profile.avatar;
   createCells();
