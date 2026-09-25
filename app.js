@@ -82,6 +82,7 @@
   const profileRulesPanel = document.querySelector('#profileRulesPanel');
   const profileRulesSummary = document.querySelector('#profileRulesSummary');
   const profileRulesList = document.querySelector('#profileRulesList');
+  const tutorialReplayButton = document.querySelector('#tutorialReplayButton');
   const recentTitle = document.querySelector('#recentTitle');
   const recentList = document.querySelector('#recentList');
   const gameOverMark = document.querySelector('#gameOverMark');
@@ -107,6 +108,12 @@
   const achievementInfoStatus = document.querySelector('#achievementInfoStatus');
   const achievementInfoProgressFill = document.querySelector('#achievementInfoProgressFill');
   const dailyList = document.querySelector('#dailyList');
+  const tutorialOverlay = document.querySelector('#tutorialOverlay');
+  const tutorialFocus = document.querySelector('#tutorialFocus');
+  const tutorialBubble = document.querySelector('#tutorialBubble');
+  const tutorialStepLabel = document.querySelector('#tutorialStepLabel');
+  const tutorialText = document.querySelector('#tutorialText');
+  const tutorialNextButton = document.querySelector('#tutorialNextButton');
 
   let board;
   let queue;
@@ -134,6 +141,10 @@
   let undoSnapshot = null;
   let hasPlayed = false;
   let gameRecorded = false;
+  let tutorialActive = false;
+  let tutorialStep = 0;
+  let tutorialMode = 'timed';
+  let tutorialHintTimer = null;
 
   function playGameSound(sound) {
     try {
@@ -180,6 +191,7 @@
       mode: 'timed',
       achievementStats: defaultAchievementStats(),
       seenAchievements: [],
+      completedTutorials: { endless: false, timed: false },
       daily: defaultDailyState()
     };
   }
@@ -245,6 +257,10 @@
         recentScoresByMode,
         achievementStats,
         seenAchievements: Array.isArray(saved?.seenAchievements) ? saved.seenAchievements : [],
+        completedTutorials: {
+          endless: saved?.completedTutorials?.endless === true,
+          timed: saved?.completedTutorials?.timed === true
+        },
         daily
       };
     } catch (_) {
@@ -303,6 +319,7 @@
     profileHighScore.textContent = highScoreFor(profileViewMode);
     profileScoreMode.textContent = `${modeName(profileViewMode)}模式历史最高分`;
     recentTitle.textContent = `${modeName(profileViewMode)}模式最近五局`;
+    tutorialReplayButton.textContent = `回顾${modeName(profileViewMode)}模式教程`;
     renderRecentScores(profileViewMode);
     renderProfileRules(profileViewMode);
   }
@@ -807,6 +824,168 @@
     if (!gameEnded) stopTimer();
   }
 
+  function fixedTutorialPiece(shape, color, previewId) {
+    return {
+      previewId,
+      shape: shape.map(cell => [...cell]),
+      color
+    };
+  }
+
+  function setupTutorialBoard() {
+    const tutorialColor = COLORS[0];
+    board = freshBoard();
+    pieces = new Map();
+    nextPieceId = 1;
+    score = 0;
+    lines = 0;
+    moves = 0;
+    combo = 0;
+    selectedQueueIndex = 0;
+    dragState = null;
+    hoverAnchor = null;
+    resolving = false;
+    gameEnded = false;
+    undoSnapshot = null;
+    hasPlayed = false;
+    gameRecorded = false;
+    queue = [
+      fixedTutorialPiece([[0, 0]], tutorialColor, 'tutorial-first'),
+      fixedTutorialPiece([[0, 0], [0, 1]], COLORS[2], 'tutorial-2'),
+      fixedTutorialPiece([[0, 0], [1, 0]], COLORS[1], 'tutorial-3'),
+      fixedTutorialPiece([[0, 0], [1, 0], [1, 1]], COLORS[0], 'tutorial-4'),
+      fixedTutorialPiece([[0, 0], [0, 1], [1, 1]], COLORS[2], 'tutorial-5'),
+      fixedTutorialPiece([[0, 0], [0, 1], [1, 0], [1, 1]], COLORS[1], 'tutorial-6'),
+      fixedTutorialPiece([[0, 0], [0, 1], [0, 2]], COLORS[2], 'tutorial-7')
+    ];
+    const starterId = nextPieceId++;
+    const starterCells = [];
+    for (let c = 0; c < SIZE - 1; c++) {
+      board[3][c] = { pieceId: starterId, color: tutorialColor, wild: false };
+      starterCells.push({ r: 3, c, wild: false });
+    }
+    pieces.set(starterId, { id: starterId, intact: true, color: tutorialColor, cells: starterCells });
+    setTool(null);
+    renderAll();
+  }
+
+  function tutorialTargetRect() {
+    const selector = tutorialStep === 0
+      ? '#modeLabel'
+      : tutorialStep === 1
+        ? '.progress-score'
+        : tutorialStep === 2
+          ? '.queue-panel'
+          : '.board-wrap';
+    return document.querySelector(selector)?.getBoundingClientRect() || null;
+  }
+
+  function positionTutorial() {
+    if (!tutorialActive || tutorialStep > 3 || tutorialOverlay.hidden) return;
+    const rect = tutorialTargetRect();
+    if (!rect) return;
+    const padding = tutorialStep === 3 ? 5 : 7;
+    tutorialFocus.hidden = false;
+    tutorialFocus.style.left = `${Math.max(4, rect.left - padding)}px`;
+    tutorialFocus.style.top = `${Math.max(4, rect.top - padding)}px`;
+    tutorialFocus.style.width = `${Math.min(window.innerWidth - 8, rect.width + padding * 2)}px`;
+    tutorialFocus.style.height = `${Math.min(window.innerHeight - 8, rect.height + padding * 2)}px`;
+
+    const bubbleRect = tutorialBubble.getBoundingClientRect();
+    const gap = 14;
+    const roomBelow = window.innerHeight - rect.bottom;
+    const placeBelow = roomBelow >= bubbleRect.height + gap || rect.top < bubbleRect.height + gap;
+    const top = placeBelow
+      ? Math.min(window.innerHeight - bubbleRect.height - 10, rect.bottom + gap)
+      : Math.max(10, rect.top - bubbleRect.height - gap);
+    const centeredLeft = rect.left + rect.width / 2 - bubbleRect.width / 2;
+    tutorialBubble.style.left = `${Math.max(10, Math.min(window.innerWidth - bubbleRect.width - 10, centeredLeft))}px`;
+    tutorialBubble.style.top = `${top}px`;
+    tutorialBubble.dataset.placement = placeBelow ? 'below' : 'above';
+  }
+
+  function tutorialCopyForStep() {
+    if (tutorialStep === 0) return '这里显示现在的游玩模式';
+    if (tutorialStep === 1) {
+      return tutorialMode === 'timed'
+        ? '这里是本回合游戏的倒计时，倒计时还剩30s的时候会变为红色'
+        : '这里是本回合的目标分数，达到目标后会进入下一档目标';
+    }
+    if (tutorialStep === 2) return '可以任选一枚待选区内的棋子，将其拖入棋盘中放置';
+    return '现在，拖动第一枚棋子放到棋盘区域，完成消除';
+  }
+
+  function renderTutorialStep() {
+    if (!tutorialActive) return;
+    clearTimeout(tutorialHintTimer);
+    tutorialOverlay.hidden = false;
+    tutorialOverlay.classList.remove('tutorial-complete');
+    tutorialBubble.classList.remove('error', 'success');
+    tutorialStepLabel.textContent = tutorialStep < 3 ? `${tutorialStep + 1} / 4` : '动手试试';
+    tutorialText.textContent = tutorialCopyForStep();
+    tutorialNextButton.hidden = tutorialStep === 3;
+    tutorialNextButton.textContent = '下一步';
+    document.body.classList.toggle('tutorial-placement', tutorialStep === 3);
+    renderQueue();
+    renderBoard();
+    requestAnimationFrame(positionTutorial);
+  }
+
+  function showTutorialPlacementHint() {
+    if (!tutorialActive || tutorialStep !== 3) return;
+    clearTimeout(tutorialHintTimer);
+    tutorialBubble.classList.add('error');
+    tutorialText.textContent = '请将棋子放置到可以消除的区域';
+    tutorialHintTimer = setTimeout(() => {
+      tutorialBubble.classList.remove('error');
+      tutorialText.textContent = tutorialCopyForStep();
+    }, 1800);
+  }
+
+  function showTutorialSuccess() {
+    if (!tutorialActive) return;
+    tutorialStep = 4;
+    clearTimeout(tutorialHintTimer);
+    document.body.classList.remove('tutorial-placement');
+    tutorialFocus.hidden = true;
+    tutorialOverlay.classList.add('tutorial-complete');
+    tutorialBubble.classList.remove('error');
+    tutorialBubble.classList.add('success');
+    tutorialStepLabel.textContent = '教程完成';
+    tutorialText.textContent = '恭喜您通过新手教程，现在开启游戏吧！';
+    tutorialNextButton.hidden = false;
+    tutorialNextButton.textContent = '开始游戏';
+    tutorialBubble.style.left = '50%';
+    tutorialBubble.style.top = '50%';
+    tutorialBubble.dataset.placement = 'center';
+  }
+
+  function finishTutorial() {
+    if (!tutorialActive) return;
+    profile.completedTutorials[tutorialMode] = true;
+    saveProfileData();
+    tutorialActive = false;
+    tutorialStep = 0;
+    clearTimeout(tutorialHintTimer);
+    tutorialOverlay.hidden = true;
+    tutorialOverlay.classList.remove('tutorial-complete');
+    tutorialFocus.hidden = false;
+    tutorialBubble.classList.remove('error', 'success');
+    document.body.classList.remove('tutorial-running', 'tutorial-placement');
+    initGame(false);
+    showToast('教程完成，正式游戏开始');
+  }
+
+  function startTutorial(mode) {
+    tutorialMode = mode === 'endless' ? 'endless' : 'timed';
+    tutorialActive = true;
+    tutorialStep = 0;
+    stopTimer();
+    document.body.classList.add('tutorial-running');
+    setupTutorialBoard();
+    renderTutorialStep();
+  }
+
   function createCells() {
     boardEl.innerHTML = '';
     for (let r = 0; r < SIZE; r++) {
@@ -865,6 +1044,7 @@
       const card = document.createElement('div');
       const selected = i === selectedQueueIndex;
       card.className = `queue-card${selected ? ' selected' : ''}`;
+      if (tutorialActive) card.classList.add(i === 0 ? 'tutorial-first-piece' : 'tutorial-locked-piece');
       card.dataset.order = String(i + 1).padStart(2, '0');
       card.dataset.index = i;
       card.tabIndex = 0;
@@ -885,6 +1065,10 @@
   }
 
   function selectQueuePiece(index) {
+    if (tutorialActive && index !== 0) {
+      showTutorialPlacementHint();
+      return false;
+    }
     selectedQueueIndex = Math.max(0, Math.min(index, queue.length - 1));
     [...queueEl.children].forEach((card, i) => {
       const selected = i === selectedQueueIndex;
@@ -907,6 +1091,11 @@
   function beginPieceDrag(event, index, card) {
     if (event.button !== undefined && event.button !== 0) return;
     if (resolving || gameEnded) return;
+    if (tutorialActive && (tutorialStep !== 3 || index !== 0)) {
+      event.preventDefault();
+      showTutorialPlacementHint();
+      return;
+    }
     event.preventDefault();
     if (!selectQueuePiece(index)) return;
     dragState = {
@@ -1004,6 +1193,7 @@
     dragState = null;
     renderBoard();
     if (anchor) placeSelected(state.index, anchor[0], anchor[1]);
+    else if (tutorialActive && tutorialStep === 3) showTutorialPlacementHint();
   }
 
   function cancelPieceDrag() {
@@ -1026,7 +1216,9 @@
 
   function renderBoard() {
     const preview = hoverAnchor ? getPreviewCells(...hoverAnchor) : [];
-    const previewValid = isPreviewValid(preview);
+    const tutorialPreviewValid = !tutorialActive || tutorialStep !== 3
+      || (hoverAnchor?.[0] === 3 && hoverAnchor?.[1] === SIZE - 1);
+    const previewValid = isPreviewValid(preview) && tutorialPreviewValid;
     const previewKeys = new Set(preview.map(x => `${x.r}-${x.c}`));
     [...boardEl.children].forEach((cellEl, index) => {
       const r = Math.floor(index / SIZE);
@@ -1043,6 +1235,9 @@
         cellEl.setAttribute('aria-label', `第${r + 1}行第${c + 1}列，空格`);
       }
       if (previewKeys.has(`${r}-${c}`)) cellEl.classList.add(previewValid ? 'preview-ok' : 'preview-bad');
+      if (tutorialActive && tutorialStep === 3 && r === 3 && c === SIZE - 1) {
+        cellEl.classList.add('tutorial-target-cell');
+      }
     });
   }
 
@@ -1079,6 +1274,10 @@
 
   async function placeSelected(index, r, c) {
     if (gameEnded) return false;
+    if (tutorialActive && (tutorialStep !== 3 || index !== 0 || r !== 3 || c !== SIZE - 1)) {
+      showTutorialPlacementHint();
+      return false;
+    }
     const current = queue[index];
     if (!current) return false;
     const targets = current.shape.map(([dr, dc]) => ({ r: r + dr, c: c + dc }));
@@ -1086,8 +1285,8 @@
       showToast('这里放不下所选棋子');
       return false;
     }
-    undoSnapshot = createUndoSnapshot();
-    hasPlayed = true;
+    undoSnapshot = tutorialActive ? null : createUndoSnapshot();
+    if (!tutorialActive) hasPlayed = true;
     const id = nextPieceId++;
     const placed = { id, intact: true, color: current.color, cells: [] };
     targets.forEach(pos => {
@@ -1095,7 +1294,7 @@
       board[pos.r][pos.c] = data;
       placed.cells.push({ ...pos, wild: false });
     });
-    recordPlacedShape(current);
+    if (!tutorialActive) recordPlacedShape(current);
     pieces.set(id, placed);
     queue.splice(index, 1);
     queue.push(makeQueuePiece());
@@ -1103,7 +1302,11 @@
     moves++;
     playGameSound(placeSound);
     renderAll();
-    await resolveLines();
+    const cleared = await resolveLines();
+    if (tutorialActive) {
+      if (cleared > 0) showTutorialSuccess();
+      else showTutorialPlacementHint();
+    }
     return true;
   }
 
@@ -1251,17 +1454,21 @@
     const multiplier = 2 ** (combo - 1);
     const gained = keys.size * 10 * multiplier;
     const scoreGroups = clearScoreGroups(rows, cols, multiplier);
-    score += gained;
-    recordLineProgress([...rows, ...cols]);
-    recordScoreProgress();
-    if (score > highScoreFor()) {
-      profile.highScores[profile.mode] = score;
-      saveProfileData();
+    if (!tutorialActive) {
+      score += gained;
+      recordLineProgress([...rows, ...cols]);
+      recordScoreProgress();
+      if (score > highScoreFor()) {
+        profile.highScores[profile.mode] = score;
+        saveProfileData();
+      }
     }
     resolving = false;
     renderAll();
     showClearScorePopups(scoreGroups);
-    showToast(combo > 1 ? `连消 ×${multiplier}，+${gained}分` : `消除成功，+${gained}分`);
+    if (!tutorialActive) {
+      showToast(combo > 1 ? `连消 ×${multiplier}，+${gained}分` : `消除成功，+${gained}分`);
+    }
     return count;
   }
 
@@ -1492,7 +1699,7 @@
   });
 
   function openExitConfirmation() {
-    if (gameEnded || exitDialog.open) return;
+    if (gameEnded || exitDialog.open || tutorialActive) return;
     pauseGameTimer();
     if (!gameEnded) exitDialog.showModal();
   }
@@ -1523,12 +1730,16 @@
     updateProfileUI();
   }
 
-  function startMode(mode) {
-    profile.mode = mode === 'endless' ? 'endless' : 'timed';
+  function startMode(mode, forceTutorial = false) {
+    const nextMode = mode === 'endless' ? 'endless' : 'timed';
+    const shouldStartTutorial = forceTutorial || !profile.completedTutorials[nextMode];
+    if (!gameScreen.hidden && !gameEnded && !tutorialActive) recordCurrentGame();
+    profile.mode = nextMode;
     saveProfileData();
     homeScreen.hidden = true;
     gameScreen.hidden = false;
     initGame();
+    if (shouldStartTutorial) requestAnimationFrame(() => startTutorial(nextMode));
   }
 
   async function createAvatarDataUrl(file) {
@@ -1572,6 +1783,21 @@
   document.querySelectorAll('[data-profile-mode]').forEach(button => {
     button.addEventListener('click', () => renderProfileMode(button.dataset.profileMode));
   });
+  tutorialReplayButton.addEventListener('click', () => {
+    const mode = profileViewMode;
+    profileDialog.close();
+    startMode(mode, true);
+  });
+  tutorialNextButton.addEventListener('click', () => {
+    if (!tutorialActive) return;
+    if (tutorialStep === 4) {
+      finishTutorial();
+      return;
+    }
+    tutorialStep = Math.min(3, tutorialStep + 1);
+    renderTutorialStep();
+  });
+  window.addEventListener('resize', () => requestAnimationFrame(positionTutorial));
   document.querySelector('#copyUid').addEventListener('click', async () => {
     try {
       if (navigator.clipboard?.writeText) {
