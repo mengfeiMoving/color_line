@@ -60,6 +60,7 @@
   const cancelTool = document.querySelector('#cancelTool');
   const toastEl = document.querySelector('#toast');
   const resetDialog = document.querySelector('#resetDialog');
+  const exitDialog = document.querySelector('#exitDialog');
   const gameOverDialog = document.querySelector('#gameOverDialog');
   const profileDialog = document.querySelector('#profileDialog');
   const clearFlash = document.querySelector('#clearFlash');
@@ -412,6 +413,13 @@
     return achievementDefinitions().filter(item => item.current >= item.target).map(item => item.id);
   }
 
+  function achievementDisplayPriority(item) {
+    const complete = item.current >= item.target;
+    if (complete && !profile.seenAchievements.includes(item.id)) return 0;
+    if (!complete) return 1;
+    return 2;
+  }
+
   function acknowledgeAchievement(id) {
     profile.seenAchievements = [...new Set([...profile.seenAchievements, id])];
     saveProfileData();
@@ -457,6 +465,7 @@
     row.querySelector('.item-notification-dot')?.remove();
     row.classList.remove('newly-complete');
     state.textContent = '已达成';
+    achievementList.appendChild(row);
   }
 
   function dailyTaskDefinitions() {
@@ -545,7 +554,14 @@
     achievementDetailTitle.textContent = meta.title;
     achievementDetailSummary.textContent = meta.summary;
     achievementList.innerHTML = '';
-    all.filter(item => item.category === category).forEach(item => {
+    all
+      .filter(item => item.category === category)
+      .map((item, originalIndex) => ({ item, originalIndex }))
+      .sort((a, b) => (
+        achievementDisplayPriority(a.item) - achievementDisplayPriority(b.item)
+        || a.originalIndex - b.originalIndex
+      ))
+      .forEach(({ item }) => {
       const complete = item.current >= item.target;
       const newlyCompleted = complete && !profile.seenAchievements.includes(item.id);
       const row = document.createElement('button');
@@ -775,10 +791,20 @@
 
   function startGameTimer() {
     timeRemaining = TIMED_DURATION_SECONDS;
+    resumeGameTimer();
+  }
+
+  function resumeGameTimer() {
     updateTimerDisplay();
-    if (profile.mode !== 'timed') return;
-    timerDeadline = Date.now() + TIMED_DURATION_SECONDS * 1000;
+    if (profile.mode !== 'timed' || gameEnded || timerId) return;
+    timerDeadline = Date.now() + timeRemaining * 1000;
     timerId = setInterval(updateTimer, 250);
+  }
+
+  function pauseGameTimer() {
+    if (profile.mode !== 'timed' || gameEnded) return;
+    updateTimer();
+    if (!gameEnded) stopTimer();
   }
 
   function createCells() {
@@ -1465,6 +1491,20 @@
     if (gameOverDialog.returnValue === 'restart') initGame();
   });
 
+  function openExitConfirmation() {
+    if (gameEnded || exitDialog.open) return;
+    pauseGameTimer();
+    if (!gameEnded) exitDialog.showModal();
+  }
+
+  exitDialog.addEventListener('close', () => {
+    if (exitDialog.returnValue === 'home') {
+      showHome(true);
+      return;
+    }
+    resumeGameTimer();
+  });
+
   function openProfile() {
     pendingAvatar = profile.avatar;
     profileViewMode = profile.mode;
@@ -1524,7 +1564,7 @@
 
   document.querySelector('#profileButton').addEventListener('click', openProfile);
   document.querySelector('#homeProfileButton').addEventListener('click', openProfile);
-  document.querySelector('#backHomeButton').addEventListener('click', () => showHome(true));
+  document.querySelector('#backHomeButton').addEventListener('click', openExitConfirmation);
   document.querySelectorAll('[data-start-mode]').forEach(button => {
     button.addEventListener('click', () => startMode(button.dataset.startMode));
   });
