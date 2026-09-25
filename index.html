@@ -7,7 +7,7 @@
   <meta name="description" content="同色整行或整列消除玩法测试版" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Crect x='6' y='6' width='8' height='8' rx='2' fill='%23ff6b7a'/%3E%3Crect x='18' y='6' width='8' height='8' rx='2' fill='%235ac8fa'/%3E%3Crect x='6' y='18' width='8' height='8' rx='2' fill='%23ffd65a'/%3E%3Crect x='18' y='18' width='8' height='8' rx='2' fill='%23a77bff'/%3E%3C/svg%3E" />
   <title>同色成线 · 玩法测试</title>
-  <link rel="stylesheet" href="./styles.css?v=20260925-profile-shapes" />
+  <link rel="stylesheet" href="./styles.css?v=20260925-uid-drag-only" />
 </head>
 <body>
   <main class="home-screen" id="homeScreen">
@@ -156,16 +156,21 @@
           <b>更换</b>
           <input id="avatarInput" type="file" accept="image/*" aria-label="选择头像图片" />
         </label>
-        <label class="name-field"><span>用户名</span><input id="usernameInput" maxlength="12" autocomplete="nickname" /></label>
+        <div class="name-field">
+          <div class="name-field-head">
+            <label for="usernameInput">用户名</label>
+            <div class="uid-inline" aria-label="玩家UID">
+              <span>UID</span><strong id="profileUid">—</strong>
+              <button id="copyUid" type="button" aria-label="复制玩家UID">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h11v11H8zM5 16H4V5h11v1" /></svg>
+                <span>复制</span>
+              </button>
+            </div>
+          </div>
+          <input id="usernameInput" maxlength="12" autocomplete="nickname" />
+        </div>
       </section>
       <p class="setting-note profile-save-note">头像与用户名仅在点击“保存设置”后生效。</p>
-      <section class="uid-row" aria-label="玩家UID">
-        <div><span>玩家 UID</span><strong id="profileUid">—</strong></div>
-        <button id="copyUid" type="button" aria-label="复制玩家UID">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h11v11H8zM5 16H4V5h11v1" /></svg>
-          <span>复制</span>
-        </button>
-      </section>
       <section class="profile-section profile-mode-section">
         <h3>玩法模式</h3>
         <div class="mode-options" role="radiogroup" aria-label="查看不同玩法模式的数据">
@@ -238,6 +243,6 @@
       <div class="daily-list" id="dailyList"></div>
     </div>
   </dialog>
-  <script src="./app.js?v=20260925-profile-shapes"></script>
+  <script src="./app.js?v=20260925-uid-drag-only"></script>
 </body>
 </html>
