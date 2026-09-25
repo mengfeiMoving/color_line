@@ -7,7 +7,7 @@
   <meta name="description" content="同色整行或整列消除玩法测试版" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Crect x='6' y='6' width='8' height='8' rx='2' fill='%23ff6b7a'/%3E%3Crect x='18' y='6' width='8' height='8' rx='2' fill='%235ac8fa'/%3E%3Crect x='6' y='18' width='8' height='8' rx='2' fill='%23ffd65a'/%3E%3Crect x='18' y='18' width='8' height='8' rx='2' fill='%23a77bff'/%3E%3C/svg%3E" />
   <title>同色成线 · 玩法测试</title>
-  <link rel="stylesheet" href="./styles.css?v=20260924-achievement-stars-2" />
+  <link rel="stylesheet" href="./styles.css?v=20260925-profile-shapes" />
 </head>
 <body>
   <main class="home-screen" id="homeScreen">
@@ -158,23 +158,31 @@
         </label>
         <label class="name-field"><span>用户名</span><input id="usernameInput" maxlength="12" autocomplete="nickname" /></label>
       </section>
+      <p class="setting-note profile-save-note">头像与用户名仅在点击“保存设置”后生效。</p>
+      <section class="uid-row" aria-label="玩家UID">
+        <div><span>玩家 UID</span><strong id="profileUid">—</strong></div>
+        <button id="copyUid" type="button" aria-label="复制玩家UID">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h11v11H8zM5 16H4V5h11v1" /></svg>
+          <span>复制</span>
+        </button>
+      </section>
+      <section class="profile-section profile-mode-section">
+        <h3>玩法模式</h3>
+        <div class="mode-options" role="radiogroup" aria-label="查看不同玩法模式的数据">
+          <button type="button" data-profile-mode="timed" role="radio" aria-checked="true"><strong>限时模式</strong><small>5分钟挑战最高分</small></button>
+          <button type="button" data-profile-mode="endless" role="radio" aria-checked="false"><strong>无尽模式</strong><small>逐级完成目标分数</small></button>
+        </div>
+      </section>
       <section class="profile-score">
-        <span id="profileScoreMode">无尽模式最高分</span><strong id="profileHighScore">0</strong>
+        <span id="profileScoreMode">限时模式历史最高分</span><strong id="profileHighScore">0</strong>
       </section>
       <section class="profile-section">
-        <h3 id="recentTitle">无尽模式最近五局</h3>
+        <h3 id="recentTitle">限时模式最近五局</h3>
         <ol class="recent-list" id="recentList"></ol>
       </section>
-      <details class="rules-panel">
-        <summary>查看游戏规则</summary>
-        <ul>
-          <li>将棋子拖入7×7棋盘，填满同色整行或整列即可消除。</li>
-          <li>棋子不会生成Z形，也不会生成横向或竖向连续四格的形状。</li>
-          <li>无尽模式不限时，目标分数依次为500、700、1000和1500分；限时模式为5分钟。两种模式均可从七枚待选棋子中任选。</li>
-          <li>连续操作均完成消除时，得分倍率依次变为×2、×4、×8。</li>
-          <li>万能色、敲除和撤回道具不限使用次数，每次成功使用扣除100分；扣分后不足0分则本局结束，得分停在0分。</li>
-          <li>撤回可恢复最近一次落子或道具操作发生前的棋盘与待选区；限时模式不会恢复已经流逝的时间。</li>
-        </ul>
+      <details class="rules-panel" id="profileRulesPanel">
+        <summary id="profileRulesSummary">查看限时模式游戏规则</summary>
+        <ul id="profileRulesList"></ul>
       </details>
       <button class="save-profile" id="saveProfile" type="button">保存设置</button>
     </div>
@@ -230,6 +238,6 @@
       <div class="daily-list" id="dailyList"></div>
     </div>
   </dialog>
-  <script src="./app.js?v=20260924-audio-feedback"></script>
+  <script src="./app.js?v=20260925-profile-shapes"></script>
 </body>
 </html>
