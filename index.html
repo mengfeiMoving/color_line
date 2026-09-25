@@ -7,7 +7,7 @@
   <meta name="description" content="同色整行或整列消除玩法测试版" />
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ffffff'/%3E%3Crect x='6' y='6' width='8' height='8' rx='2' fill='%23ff6b7a'/%3E%3Crect x='18' y='6' width='8' height='8' rx='2' fill='%235ac8fa'/%3E%3Crect x='6' y='18' width='8' height='8' rx='2' fill='%23ffd65a'/%3E%3Crect x='18' y='18' width='8' height='8' rx='2' fill='%23a77bff'/%3E%3C/svg%3E" />
   <title>同色成线 · 玩法测试</title>
-  <link rel="stylesheet" href="./styles.css?v=20260925-exit-confirmation" />
+  <link rel="stylesheet" href="./styles.css?v=20260925-new-player-tutorial" />
 </head>
 <body>
   <main class="home-screen" id="homeScreen">
@@ -200,6 +200,7 @@
         <summary id="profileRulesSummary">查看限时模式游戏规则</summary>
         <ul id="profileRulesList"></ul>
       </details>
+      <button class="tutorial-replay-button" id="tutorialReplayButton" type="button">回顾限时模式教程</button>
       <button class="save-profile" id="saveProfile" type="button">保存设置</button>
     </div>
   </dialog>
@@ -254,6 +255,14 @@
       <div class="daily-list" id="dailyList"></div>
     </div>
   </dialog>
-  <script src="./app.js?v=20260925-exit-confirmation"></script>
+  <div class="tutorial-overlay" id="tutorialOverlay" hidden aria-live="polite">
+    <div class="tutorial-focus" id="tutorialFocus" aria-hidden="true"></div>
+    <section class="tutorial-bubble" id="tutorialBubble" role="dialog" aria-label="新手教程">
+      <span class="tutorial-step" id="tutorialStepLabel">1 / 4</span>
+      <p id="tutorialText">这里显示现在的游玩模式</p>
+      <button id="tutorialNextButton" type="button">下一步</button>
+    </section>
+  </div>
+  <script src="./app.js?v=20260925-new-player-tutorial"></script>
 </body>
 </html>
